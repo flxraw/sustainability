@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'dart:io';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -30,6 +29,45 @@ Future<void> main() async {
   runApp(const StreetAIbilityApp());
 }
 
+class DroppedItem {
+  final Offset position;
+  final Icon icon;
+
+  DroppedItem({required this.position, required this.icon});
+}
+
+class CommunityDesign {
+  final String name;
+  final String author;
+  final int pollutionScore;
+  final int happinessScore;
+  final String imageUrl;
+
+  CommunityDesign({
+    required this.name,
+    required this.author,
+    required this.pollutionScore,
+    required this.happinessScore,
+    required this.imageUrl,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'author': author,
+    'pollutionScore': pollutionScore,
+    'happinessScore': happinessScore,
+    'imageUrl': imageUrl,
+  };
+
+  static CommunityDesign fromJson(Map<String, dynamic> json) => CommunityDesign(
+    name: json['name'],
+    author: json['author'],
+    pollutionScore: json['pollutionScore'],
+    happinessScore: json['happinessScore'],
+    imageUrl: json['imageUrl'],
+  );
+}
+
 class StreetAIbilityApp extends StatelessWidget {
   const StreetAIbilityApp({super.key});
 
@@ -38,17 +76,11 @@ class StreetAIbilityApp extends StatelessWidget {
     return MaterialApp(
       title: 'StreetAIbility',
       theme: ThemeData.light(useMaterial3: true),
-      home: const StreetEditorScreen(),
       debugShowCheckedModeBanner: false,
+      home: const StreetEditorScreen(),
+      routes: {'/community': (context) => const CommunityDesignsScreen()},
     );
   }
-}
-
-class DroppedItem {
-  final Offset position;
-  final Icon icon;
-
-  DroppedItem({required this.position, required this.icon});
 }
 
 class StreetEditorScreen extends StatefulWidget {
@@ -69,42 +101,11 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
   int? _pollutionScore;
   int? _happinessScore;
 
-  Future<void> _generateImage() async {
-    const prompt = 'Urban street with trees, no cars, seating and bike lanes';
-    final dalle = DalleService(authToken: dotenv.env['open_nerv']!);
-    final imageUrl = await dalle.generateImage(prompt);
-    if (imageUrl != null) {
-      setState(() => _generatedImageUrl = imageUrl);
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text("Generated Image"),
-              content:
-                  kIsWeb
-                      ? const Text("Open in new tab.")
-                      : Image.network(imageUrl),
-              actions: [
-                if (kIsWeb)
-                  TextButton(
-                    onPressed: () => html.window.open(imageUrl, '_blank'),
-                    child: const Text("Open"),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("Close"),
-                ),
-              ],
-            ),
-      );
-    }
-  }
-
   Future<void> exportDesign() async {
     if (_markers.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No location selected.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No street selected to export.')),
+      );
       return;
     }
 
@@ -121,51 +122,87 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
       streetViewImage,
       _droppedItems,
     );
+
     final dalle = DalleService(authToken: dotenv.env['open_nerv']!);
     final tempDir = Directory.systemTemp;
 
     final resultUrl = await dalle.processImageFromBytes(
       imageBytes: compositeImage,
-      promptText: 'Refined urban street design with enhancements',
+      promptText:
+          'A redesigned urban street with trees, bike lanes, and community spaces.',
       tempDirPath: tempDir.path,
     );
 
-    if (resultUrl != null) {
-      setState(() => _generatedImageUrl = resultUrl);
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text("Exported Design"),
-              content:
-                  kIsWeb
-                      ? const Text("Open in new tab.")
-                      : Image.network(resultUrl),
-              actions: [
-                if (kIsWeb)
-                  TextButton(
-                    onPressed: () => html.window.open(resultUrl, '_blank'),
-                    child: const Text("Open"),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("Close"),
+    if (resultUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ DALL·E failed to generate an image.')),
+      );
+      return;
+    }
+
+    setState(() => _generatedImageUrl = resultUrl);
+
+    final nameController = TextEditingController();
+    final authorController = TextEditingController();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Save Your Design'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Design Name'),
+                ),
+                TextField(
+                  controller: authorController,
+                  decoration: const InputDecoration(labelText: 'Your Name'),
                 ),
               ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Save'),
+              ),
+            ],
+          ),
+    );
+
+    if (saved == true) {
+      final design = CommunityDesign(
+        name: nameController.text,
+        author: authorController.text,
+        pollutionScore: _pollutionScore ?? 0,
+        happinessScore: _happinessScore ?? 0,
+        imageUrl: resultUrl,
       );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Image processing failed.')));
+
+      final storage = html.window.localStorage;
+      final key = 'community_designs';
+      final raw = storage[key];
+      final designs =
+          raw != null ? List<Map<String, dynamic>>.from(jsonDecode(raw)) : [];
+      designs.add(design.toJson());
+      storage[key] = jsonEncode(designs);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Design exported and saved!')),
+      );
     }
   }
 
   Future<Uint8List?> fetchStreetImage(LatLng location) async {
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/streetview'
-      '?size=600x400'
-      '&location=${location.latitude},${location.longitude}'
+      '?size=600x400&location=${location.latitude},${location.longitude}'
       '&key=${dotenv.env['google_nerv']}',
     );
     final response = await http.get(url);
@@ -206,12 +243,10 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
     final canvas = Canvas(recorder);
     final painter = TextPainter(
       text: TextSpan(
-        text:
-            icon.icon != null ? String.fromCharCode(icon.icon!.codePoint) : '',
+        text: String.fromCharCode(icon.icon!.codePoint),
         style: TextStyle(
           fontSize: icon.size ?? 24,
           fontFamily: icon.icon?.fontFamily,
-          package: icon.icon?.fontPackage,
           color: icon.color ?? Colors.black,
         ),
       ),
@@ -224,9 +259,21 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
   }
 
   void _handleDrop(Offset pos, Icon icon) {
-    setState(() {
-      _droppedItems.add(DroppedItem(position: pos, icon: icon));
-    });
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Size size = renderBox.size;
+    final double streetZoneLeft = size.width * 0.25;
+    final double streetZoneRight = size.width * 0.75;
+    if (pos.dx >= streetZoneLeft && pos.dx <= streetZoneRight) {
+      setState(() => _droppedItems.add(DroppedItem(position: pos, icon: icon)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '❌ Please drop icons within the highlighted street area.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -235,8 +282,11 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
       appBar: AppBar(
         title: const Text('StreetAIbility'),
         actions: [
-          IconButton(icon: const Icon(Icons.image), onPressed: _generateImage),
           IconButton(icon: const Icon(Icons.download), onPressed: exportDesign),
+          IconButton(
+            icon: const Icon(Icons.group),
+            onPressed: () => Navigator.pushNamed(context, '/community'),
+          ),
         ],
       ),
       body: Column(
@@ -275,15 +325,46 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: const [
-        Text('Tools', style: TextStyle(fontWeight: FontWeight.bold)),
-        SizedBox(height: 16),
+        Text(
+          'Green',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        SizedBox(height: 8),
+        DraggableIconItem(
+          icon: Icon(Icons.park, size: 48, color: Colors.green),
+          label: 'Street Trees',
+        ),
+        DraggableIconItem(
+          icon: Icon(Icons.grass, size: 48, color: Colors.green),
+          label: 'Planters',
+        ),
+        SizedBox(height: 24),
+        Text(
+          'Mobility',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        SizedBox(height: 8),
         DraggableIconItem(
           icon: Icon(Icons.directions_bike, size: 48, color: Colors.blue),
           label: 'Bike Lane',
         ),
         DraggableIconItem(
-          icon: Icon(Icons.park, size: 48, color: Colors.green),
-          label: 'Street Trees',
+          icon: Icon(Icons.bus_alert, size: 48, color: Colors.blueGrey),
+          label: 'Bus Stop',
+        ),
+        SizedBox(height: 24),
+        Text(
+          'Social',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        SizedBox(height: 8),
+        DraggableIconItem(
+          icon: Icon(Icons.outdoor_grill, size: 48, color: Colors.redAccent),
+          label: 'BBQ',
+        ),
+        DraggableIconItem(
+          icon: Icon(Icons.event_seat, size: 48, color: Colors.brown),
+          label: 'Bench',
         ),
       ],
     );
@@ -292,6 +373,11 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
   Widget _buildMapEditor() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final zoneLeft = width * 0.25;
+        final zoneRight = width * 0.75;
+
         return Stack(
           children: [
             GoogleMap(
@@ -301,9 +387,7 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
               ),
               onMapCreated: (controller) {
                 _mapController.complete(controller);
-                setState(() {
-                  _isMapInitialized = true;
-                });
+                setState(() => _isMapInitialized = true);
               },
               markers: _markers,
               myLocationEnabled: true,
@@ -313,6 +397,40 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
               tiltGesturesEnabled: !_isMapLocked,
               onTap: (position) async {
                 if (!_isMapInitialized) return;
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text("Confirm Street Location"),
+                        content: const Text(
+                          "Do you want to lock this location as your street?",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("No"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Yes"),
+                          ),
+                        ],
+                      ),
+                );
+                if (confirmed != true) return;
+
+                final controller = await _mapController.future;
+                controller.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(
+                      target: position,
+                      zoom: 18,
+                      tilt: 0,
+                      bearing: 0,
+                    ),
+                  ),
+                );
+
                 setState(() {
                   _markers.clear();
                   _markers.add(
@@ -321,6 +439,7 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
                       position: position,
                     ),
                   );
+                  _isMapLocked = true;
                 });
 
                 final calculator = ScoreCalculator(
@@ -345,7 +464,6 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
                     position.longitude,
                   );
                   final happiness = calculator.calculateHappinessScore();
-
                   setState(() {
                     _pollutionScore = pollution;
                     _happinessScore = happiness;
@@ -354,6 +472,20 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
                   debugPrint('Error calculating scores: $e');
                 }
               },
+            ),
+            Positioned(
+              left: zoneLeft,
+              top: 0,
+              width: zoneRight - zoneLeft,
+              height: height,
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    border: Border.all(color: Colors.green.shade700, width: 2),
+                  ),
+                ),
+              ),
             ),
             Positioned.fill(
               child: DragTarget<Icon>(
@@ -395,5 +527,75 @@ class DraggableIconItem extends StatelessWidget {
       ),
       child: ListTile(leading: icon, title: Text(label)),
     );
+  }
+}
+
+class CommunityDesignsScreen extends StatelessWidget {
+  const CommunityDesignsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final raw = html.window.localStorage['community_designs'];
+    final List<CommunityDesign> designs =
+        raw != null
+            ? (jsonDecode(raw) as List)
+                .map((e) => CommunityDesign.fromJson(e))
+                .toList()
+            : [];
+
+    designs.sort(
+      (a, b) => (b.happinessScore + b.pollutionScore).compareTo(
+        a.happinessScore + a.pollutionScore,
+      ),
+    );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Community Designs')),
+      body: ListView.builder(
+        itemCount: designs.length,
+        itemBuilder: (context, index) {
+          final design = designs[index];
+          return Card(
+            margin: const EdgeInsets.all(8),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(12),
+              leading: Image.network(
+                design.imageUrl,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
+              title: Text(design.name),
+              subtitle: Text(
+                'By ${design.author} — 🧘 ${design.happinessScore} 💨 ${design.pollutionScore}',
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.share),
+                tooltip: 'Share Design',
+                onPressed: () {
+                  final link = design.imageUrl;
+                  _shareDesign(context, link);
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _shareDesign(BuildContext context, String url) {
+    html.window.navigator.clipboard
+        ?.writeText(url)
+        .then((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('🔗 Link copied to clipboard!')),
+          );
+        })
+        .catchError((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('⚠️ Could not copy link.')),
+          );
+        });
   }
 }
