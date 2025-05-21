@@ -12,10 +12,21 @@ import 'package:http/http.dart' as http;
 import 'package:universal_html/html.dart' as html;
 
 import 'dalle.dart';
+import 'score.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
+
+  if (kIsWeb) {
+    final mapKey = dotenv.env['google_nerv'];
+    if (mapKey != null) {
+      html.window.localStorage['MAP_CREDENTIAL'] = mapKey;
+    } else {
+      debugPrint("⚠️ 'google_nerv' not found in .env");
+    }
+  }
+
   runApp(const StreetAIbilityApp());
 }
 
@@ -50,11 +61,13 @@ class StreetEditorScreen extends StatefulWidget {
 class _StreetEditorScreenState extends State<StreetEditorScreen> {
   String? _generatedImageUrl;
   final List<DroppedItem> _droppedItems = [];
-  final TextEditingController _searchController = TextEditingController();
   final Completer<GoogleMapController> _mapController = Completer();
   final Set<Marker> _markers = {};
   LatLng _initialPosition = const LatLng(48.137154, 11.576124);
   bool _isMapLocked = false;
+  bool _isMapInitialized = false;
+  int? _pollutionScore;
+  int? _happinessScore;
 
   Future<void> _generateImage() async {
     const prompt = 'Urban street with trees, no cars, seating and bike lanes';
@@ -226,10 +239,33 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
           IconButton(icon: const Icon(Icons.download), onPressed: exportDesign),
         ],
       ),
-      body: Row(
+      body: Column(
         children: [
-          Expanded(child: _buildSidebar()),
-          Expanded(flex: 3, child: _buildMapEditor()),
+          if (_pollutionScore != null && _happinessScore != null)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Text(
+                    'Pollution Score: $_pollutionScore',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 20),
+                  Text(
+                    'Happiness Score: $_happinessScore',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _buildSidebar()),
+                Expanded(flex: 3, child: _buildMapEditor()),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -263,14 +299,20 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
                 target: _initialPosition,
                 zoom: 14,
               ),
-              onMapCreated: (controller) => _mapController.complete(controller),
+              onMapCreated: (controller) {
+                _mapController.complete(controller);
+                setState(() {
+                  _isMapInitialized = true;
+                });
+              },
               markers: _markers,
               myLocationEnabled: true,
               scrollGesturesEnabled: !_isMapLocked,
               zoomGesturesEnabled: !_isMapLocked,
               rotateGesturesEnabled: !_isMapLocked,
               tiltGesturesEnabled: !_isMapLocked,
-              onTap: (position) {
+              onTap: (position) async {
+                if (!_isMapInitialized) return;
                 setState(() {
                   _markers.clear();
                   _markers.add(
@@ -280,6 +322,37 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
                     ),
                   );
                 });
+
+                final calculator = ScoreCalculator(
+                  treeCount:
+                      _droppedItems
+                          .where((item) => item.icon.icon == Icons.park)
+                          .length,
+                  greenModuleCount:
+                      _droppedItems
+                          .where(
+                            (item) => item.icon.icon == Icons.directions_bike,
+                          )
+                          .length,
+                  pollutingModuleCount: 1,
+                  amenityCount: 2,
+                  greenTransportCount: 1,
+                );
+
+                try {
+                  final pollution = await calculator.calculatePollutionScore(
+                    position.latitude,
+                    position.longitude,
+                  );
+                  final happiness = calculator.calculateHappinessScore();
+
+                  setState(() {
+                    _pollutionScore = pollution;
+                    _happinessScore = happiness;
+                  });
+                } catch (e) {
+                  debugPrint('Error calculating scores: $e');
+                }
               },
             ),
             Positioned.fill(
