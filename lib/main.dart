@@ -14,6 +14,7 @@ import 'package:universal_html/html.dart' as html;
 import 'dalle.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
   runApp(const StreetAIbilityApp());
 }
@@ -57,7 +58,7 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
 
   Future<void> _generateImage() async {
     const prompt = 'Urban street with trees, no cars, seating and bike lanes';
-    final dalle = DalleService(apiKey: dotenv.env['open_nerv']!);
+    final dalle = DalleService(authToken: dotenv.env['open_nerv']!);
     final imageUrl = await dalle.generateImage(prompt);
     if (imageUrl != null) {
       setState(() => _generatedImageUrl = imageUrl);
@@ -107,12 +108,12 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
       streetViewImage,
       _droppedItems,
     );
-    final dalle = DalleService(apiKey: dotenv.env['open_nerv']!);
+    final dalle = DalleService(authToken: dotenv.env['open_nerv']!);
     final tempDir = Directory.systemTemp;
 
     final resultUrl = await dalle.processImageFromBytes(
       imageBytes: compositeImage,
-      prompt: 'Refined urban street design with enhancements',
+      promptText: 'Refined urban street design with enhancements',
       tempDirPath: tempDir.path,
     );
 
@@ -192,11 +193,12 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
     final canvas = Canvas(recorder);
     final painter = TextPainter(
       text: TextSpan(
-        text: String.fromCharCode(icon.icon!.codePoint),
+        text:
+            icon.icon != null ? String.fromCharCode(icon.icon!.codePoint) : '',
         style: TextStyle(
           fontSize: icon.size ?? 24,
-          fontFamily: icon.icon!.fontFamily,
-          package: icon.icon!.fontPackage,
+          fontFamily: icon.icon?.fontFamily,
+          package: icon.icon?.fontPackage,
           color: icon.color ?? Colors.black,
         ),
       ),
@@ -268,6 +270,17 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
               zoomGesturesEnabled: !_isMapLocked,
               rotateGesturesEnabled: !_isMapLocked,
               tiltGesturesEnabled: !_isMapLocked,
+              onTap: (position) {
+                setState(() {
+                  _markers.clear();
+                  _markers.add(
+                    Marker(
+                      markerId: const MarkerId('selected'),
+                      position: position,
+                    ),
+                  );
+                });
+              },
             ),
             Positioned.fill(
               child: DragTarget<Icon>(

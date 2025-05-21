@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
 class DalleService {
-  final String authToken; // Renamed to avoid detection
+  final String authToken;
 
   DalleService({required this.authToken});
 
