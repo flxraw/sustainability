@@ -3,17 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <title>StreetAIbility</title>
+
+    <!-- Load Google Maps JavaScript API from localStorage key -->
     <script>
-      // Dynamically load external map library using a value from localStorage
       const injectedMapToken = localStorage.getItem("MAP_CREDENTIAL");
       if (injectedMapToken) {
         const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?load=${injectedMapToken}`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${injectedMapToken}`;
         script.defer = true;
         script.async = true;
         document.head.appendChild(script);
       } else {
-        console.warn("⚠️ Map credential is not configured in localStorage.");
+        console.warn("⚠️ MAP_CREDENTIAL is missing from localStorage.");
       }
     </script>
   </head>
