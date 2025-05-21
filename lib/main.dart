@@ -1,122 +1,313 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'dart:io';
 
-void main() {
-  runApp(const MyApp());
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:universal_html/html.dart' as html;
+
+import 'dalle.dart';
+
+Future<void> main() async {
+  await dotenv.load();
+  runApp(const StreetAIbilityApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class StreetAIbilityApp extends StatelessWidget {
+  const StreetAIbilityApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'StreetAIbility',
+      theme: ThemeData.light(useMaterial3: true),
+      home: const StreetEditorScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class DroppedItem {
+  final Offset position;
+  final Icon icon;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  DroppedItem({required this.position, required this.icon});
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class StreetEditorScreen extends StatefulWidget {
+  const StreetEditorScreen({super.key});
 
-  void _incrementCounter() {
+  @override
+  State<StreetEditorScreen> createState() => _StreetEditorScreenState();
+}
+
+class _StreetEditorScreenState extends State<StreetEditorScreen> {
+  String? _generatedImageUrl;
+  final List<DroppedItem> _droppedItems = [];
+  final TextEditingController _searchController = TextEditingController();
+  final Completer<GoogleMapController> _mapController = Completer();
+  final Set<Marker> _markers = {};
+  LatLng _initialPosition = const LatLng(48.137154, 11.576124);
+  bool _isMapLocked = false;
+
+  Future<void> _generateImage() async {
+    const prompt = 'Urban street with trees, no cars, seating and bike lanes';
+    final dalle = DalleService(apiKey: dotenv.env['open_nerv']!);
+    final imageUrl = await dalle.generateImage(prompt);
+    if (imageUrl != null) {
+      setState(() => _generatedImageUrl = imageUrl);
+      showDialog(
+        context: context,
+        builder:
+            (_) => AlertDialog(
+              title: const Text("Generated Image"),
+              content:
+                  kIsWeb
+                      ? const Text("Open in new tab.")
+                      : Image.network(imageUrl),
+              actions: [
+                if (kIsWeb)
+                  TextButton(
+                    onPressed: () => html.window.open(imageUrl, '_blank'),
+                    child: const Text("Open"),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Close"),
+                ),
+              ],
+            ),
+      );
+    }
+  }
+
+  Future<void> exportDesign() async {
+    if (_markers.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No location selected.')));
+      return;
+    }
+
+    final location = _markers.first.position;
+    final streetViewImage = await fetchStreetImage(location);
+    if (streetViewImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Street image could not be loaded.')),
+      );
+      return;
+    }
+
+    final compositeImage = await overlayIconsOnImage(
+      streetViewImage,
+      _droppedItems,
+    );
+    final dalle = DalleService(apiKey: dotenv.env['open_nerv']!);
+    final tempDir = Directory.systemTemp;
+
+    final resultUrl = await dalle.processImageFromBytes(
+      imageBytes: compositeImage,
+      prompt: 'Refined urban street design with enhancements',
+      tempDirPath: tempDir.path,
+    );
+
+    if (resultUrl != null) {
+      setState(() => _generatedImageUrl = resultUrl);
+      showDialog(
+        context: context,
+        builder:
+            (_) => AlertDialog(
+              title: const Text("Exported Design"),
+              content:
+                  kIsWeb
+                      ? const Text("Open in new tab.")
+                      : Image.network(resultUrl),
+              actions: [
+                if (kIsWeb)
+                  TextButton(
+                    onPressed: () => html.window.open(resultUrl, '_blank'),
+                    child: const Text("Open"),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Close"),
+                ),
+              ],
+            ),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Image processing failed.')));
+    }
+  }
+
+  Future<Uint8List?> fetchStreetImage(LatLng location) async {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/streetview'
+      '?size=600x400'
+      '&location=${location.latitude},${location.longitude}'
+      '&key=${dotenv.env['google_nerv']}',
+    );
+    final response = await http.get(url);
+    return response.statusCode == 200 ? response.bodyBytes : null;
+  }
+
+  Future<Uint8List> overlayIconsOnImage(
+    Uint8List baseImageBytes,
+    List<DroppedItem> items,
+  ) async {
+    final codec = await ui.instantiateImageCodec(baseImageBytes);
+    final frame = await codec.getNextFrame();
+    final baseImage = frame.image;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint();
+    canvas.drawImage(baseImage, Offset.zero, paint);
+
+    for (var item in items) {
+      final iconImage = await iconToImage(item.icon);
+      canvas.drawImage(iconImage, item.position, paint);
+    }
+
+    final picture = recorder.endRecording();
+    final resultImage = await picture.toImage(
+      baseImage.width,
+      baseImage.height,
+    );
+    final byteData = await resultImage.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
+
+  Future<ui.Image> iconToImage(Icon icon) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final painter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.icon!.codePoint),
+        style: TextStyle(
+          fontSize: icon.size ?? 24,
+          fontFamily: icon.icon!.fontFamily,
+          package: icon.icon!.fontPackage,
+          color: icon.color ?? Colors.black,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    painter.layout();
+    painter.paint(canvas, Offset.zero);
+    final picture = recorder.endRecording();
+    return await picture.toImage(painter.width.ceil(), painter.height.ceil());
+  }
+
+  void _handleDrop(Offset pos, Icon icon) {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _droppedItems.add(DroppedItem(position: pos, icon: icon));
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('StreetAIbility'),
+        actions: [
+          IconButton(icon: const Icon(Icons.image), onPressed: _generateImage),
+          IconButton(icon: const Icon(Icons.download), onPressed: exportDesign),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      body: Row(
+        children: [
+          Expanded(child: _buildSidebar()),
+          Expanded(flex: 3, child: _buildMapEditor()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: const [
+        Text('Tools', style: TextStyle(fontWeight: FontWeight.bold)),
+        SizedBox(height: 16),
+        DraggableIconItem(
+          icon: Icon(Icons.directions_bike, size: 48, color: Colors.blue),
+          label: 'Bike Lane',
         ),
+        DraggableIconItem(
+          icon: Icon(Icons.park, size: 48, color: Colors.green),
+          label: 'Street Trees',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapEditor() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: _initialPosition,
+                zoom: 14,
+              ),
+              onMapCreated: (controller) => _mapController.complete(controller),
+              markers: _markers,
+              myLocationEnabled: true,
+              scrollGesturesEnabled: !_isMapLocked,
+              zoomGesturesEnabled: !_isMapLocked,
+              rotateGesturesEnabled: !_isMapLocked,
+              tiltGesturesEnabled: !_isMapLocked,
+            ),
+            Positioned.fill(
+              child: DragTarget<Icon>(
+                builder: (context, _, __) => Container(),
+                onAcceptWithDetails: (details) {
+                  final pos = (context.findRenderObject() as RenderBox)
+                      .globalToLocal(details.offset);
+                  _handleDrop(pos, details.data);
+                },
+              ),
+            ),
+            for (var item in _droppedItems)
+              Positioned(
+                left: item.position.dx - 24,
+                top: item.position.dy - 24,
+                child: item.icon,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class DraggableIconItem extends StatelessWidget {
+  final Icon icon;
+  final String label;
+
+  const DraggableIconItem({super.key, required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Draggable<Icon>(
+      data: icon,
+      feedback: Material(color: Colors.transparent, child: icon),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: ListTile(leading: icon, title: Text(label)),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      child: ListTile(leading: icon, title: Text(label)),
     );
   }
 }
