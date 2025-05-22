@@ -1,71 +1,15 @@
+import 'dart:ui' as ui;
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:universal_html/html.dart' as html;
-
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'dart:html' as html;
 import 'dalle.dart';
-import 'score.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load();
-
-  if (kIsWeb) {
-    final mapKey = dotenv.env['google_nerv'];
-    if (mapKey != null) {
-      html.window.localStorage['MAP_CREDENTIAL'] = mapKey;
-    } else {
-      debugPrint("⚠️ 'google_nerv' not found in .env");
-    }
-  }
-
+void main() {
   runApp(const StreetAIbilityApp());
-}
-
-class DroppedItem {
-  final Offset position;
-  final Icon icon;
-
-  DroppedItem({required this.position, required this.icon});
-}
-
-class CommunityDesign {
-  final String name;
-  final String author;
-  final int pollutionScore;
-  final int happinessScore;
-  final String imageUrl;
-
-  CommunityDesign({
-    required this.name,
-    required this.author,
-    required this.pollutionScore,
-    required this.happinessScore,
-    required this.imageUrl,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'author': author,
-    'pollutionScore': pollutionScore,
-    'happinessScore': happinessScore,
-    'imageUrl': imageUrl,
-  };
-
-  static CommunityDesign fromJson(Map<String, dynamic> json) => CommunityDesign(
-    name: json['name'],
-    author: json['author'],
-    pollutionScore: json['pollutionScore'],
-    happinessScore: json['happinessScore'],
-    imageUrl: json['imageUrl'],
-  );
 }
 
 class StreetAIbilityApp extends StatelessWidget {
@@ -76,11 +20,17 @@ class StreetAIbilityApp extends StatelessWidget {
     return MaterialApp(
       title: 'StreetAIbility',
       theme: ThemeData.light(useMaterial3: true),
-      debugShowCheckedModeBanner: false,
       home: const StreetEditorScreen(),
-      routes: {'/community': (context) => const CommunityDesignsScreen()},
+      debugShowCheckedModeBanner: false,
     );
   }
+}
+
+class DroppedItem {
+  final Offset position;
+  final Icon icon;
+
+  DroppedItem({required this.position, required this.icon});
 }
 
 class StreetEditorScreen extends StatefulWidget {
@@ -93,419 +43,351 @@ class StreetEditorScreen extends StatefulWidget {
 class _StreetEditorScreenState extends State<StreetEditorScreen> {
   String? _generatedImageUrl;
   final List<DroppedItem> _droppedItems = [];
+  final TextEditingController _searchController = TextEditingController();
   final Completer<GoogleMapController> _mapController = Completer();
   final Set<Marker> _markers = {};
   LatLng _initialPosition = const LatLng(48.137154, 11.576124);
   bool _isMapLocked = false;
-  bool _isMapInitialized = false;
-  int? _pollutionScore;
-  int? _happinessScore;
 
-  Future<void> exportDesign() async {
-    if (_markers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No street selected to export.')),
-      );
-      return;
-    }
+  Future<void> _generateImage() async {
+    const prompt =
+        'Eine städtische Straße, umgestaltet mit Bäumen links und rechts, ohne Autos, mit einer Sitzecke mit Grill links und einem Fahrradweg rechts, 2-spurig';
 
-    final location = _markers.first.position;
-    final streetViewImage = await fetchStreetImage(location);
-    if (streetViewImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Street image could not be loaded.')),
-      );
-      return;
-    }
+    final dalle = DalleService(apiKey: 'api-key-dalle');
+    final imageUrl = await dalle.generateImage(prompt);
 
-    final compositeImage = await overlayIconsOnImage(
-      streetViewImage,
-      _droppedItems,
-    );
+    setState(() {
+      _generatedImageUrl = imageUrl;
+    });
 
-    final dalle = DalleService(authToken: dotenv.env['open_nerv']!);
-    final tempDir = Directory.systemTemp;
-
-    final resultUrl = await dalle.processImageFromBytes(
-      imageBytes: compositeImage,
-      promptText:
-          'A redesigned urban street with trees, bike lanes, and community spaces.',
-      tempDirPath: tempDir.path,
-    );
-
-    if (resultUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ DALL·E failed to generate an image.')),
-      );
-      return;
-    }
-
-    setState(() => _generatedImageUrl = resultUrl);
-
-    final nameController = TextEditingController();
-    final authorController = TextEditingController();
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Save Your Design'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Design Name'),
-                ),
-                TextField(
-                  controller: authorController,
-                  decoration: const InputDecoration(labelText: 'Your Name'),
+    if (imageUrl != null) {
+      showDialog(
+        context: context,
+        builder:
+            (_) => AlertDialog(
+              title: const Text("Generiertes Bild"),
+              content:
+                  kIsWeb
+                      ? const Text(
+                        "Das Bild kann im neuen Tab geöffnet werden.",
+                      )
+                      : Image.network(imageUrl),
+              actions: [
+                if (kIsWeb)
+                  TextButton(
+                    onPressed: () => html.window.open(imageUrl, '_blank'),
+                    child: const Text("Im neuen Tab öffnen"),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Schließen"),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-    );
-
-    if (saved == true) {
-      final design = CommunityDesign(
-        name: nameController.text,
-        author: authorController.text,
-        pollutionScore: _pollutionScore ?? 0,
-        happinessScore: _happinessScore ?? 0,
-        imageUrl: resultUrl,
-      );
-
-      final storage = html.window.localStorage;
-      final key = 'community_designs';
-      final raw = storage[key];
-      final designs =
-          raw != null ? List<Map<String, dynamic>>.from(jsonDecode(raw)) : [];
-      designs.add(design.toJson());
-      storage[key] = jsonEncode(designs);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Design exported and saved!')),
       );
     }
   }
 
-  Future<Uint8List?> fetchStreetImage(LatLng location) async {
+  Future<void> _searchLocation() async {
+    final address = _searchController.text.trim();
+    if (address.isEmpty) return;
+
+    final apiKey = 'api-key';
     final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/streetview'
-      '?size=600x400&location=${location.latitude},${location.longitude}'
-      '&key=${dotenv.env['google_nerv']}',
+      'https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(address)}&key=$apiKey',
     );
-    final response = await http.get(url);
-    return response.statusCode == 200 ? response.bodyBytes : null;
-  }
 
-  Future<Uint8List> overlayIconsOnImage(
-    Uint8List baseImageBytes,
-    List<DroppedItem> items,
-  ) async {
-    final codec = await ui.instantiateImageCodec(baseImageBytes);
-    final frame = await codec.getNextFrame();
-    final baseImage = frame.image;
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+          final result = data['results'][0];
+          final location = result['geometry']['location'];
+          final formattedAddress = result['formatted_address'];
+          final latLng = LatLng(location['lat'], location['lng']);
 
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final paint = Paint();
-    canvas.drawImage(baseImage, Offset.zero, paint);
+          final isConfirmed = await showDialog<bool>(
+            context: context,
+            builder:
+                (context) => AlertDialog(
+                  title: const Text('Confirm Location'),
+                  content: Text(
+                    'Is this the correct address?\n\n$formattedAddress',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('No'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Yes'),
+                    ),
+                  ],
+                ),
+          );
 
-    for (var item in items) {
-      final iconImage = await iconToImage(item.icon);
-      canvas.drawImage(iconImage, item.position, paint);
+          if (isConfirmed == true) {
+            setState(() {
+              _markers.clear();
+              _markers.add(
+                Marker(
+                  markerId: const MarkerId('searched'),
+                  position: latLng,
+                  infoWindow: InfoWindow(title: formattedAddress),
+                ),
+              );
+              _isMapLocked = true;
+            });
+
+            final controller = await _mapController.future;
+            await controller.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(target: latLng, zoom: 18, bearing: 90),
+              ),
+            );
+          }
+        } else {
+          _showNotFound();
+        }
+      } else {
+        _showNotFound();
+      }
+    } catch (_) {
+      _showNotFound();
     }
-
-    final picture = recorder.endRecording();
-    final resultImage = await picture.toImage(
-      baseImage.width,
-      baseImage.height,
-    );
-    final byteData = await resultImage.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-    return byteData!.buffer.asUint8List();
   }
 
-  Future<ui.Image> iconToImage(Icon icon) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final painter = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(icon.icon!.codePoint),
-        style: TextStyle(
-          fontSize: icon.size ?? 24,
-          fontFamily: icon.icon?.fontFamily,
-          color: icon.color ?? Colors.black,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    painter.layout();
-    painter.paint(canvas, Offset.zero);
-    final picture = recorder.endRecording();
-    return await picture.toImage(painter.width.ceil(), painter.height.ceil());
+  void _showNotFound() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Address not found.')));
   }
 
-  void _handleDrop(Offset pos, Icon icon) {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Size size = renderBox.size;
-    final double streetZoneLeft = size.width * 0.25;
-    final double streetZoneRight = size.width * 0.75;
-    if (pos.dx >= streetZoneLeft && pos.dx <= streetZoneRight) {
-      setState(() => _droppedItems.add(DroppedItem(position: pos, icon: icon)));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '❌ Please drop icons within the highlighted street area.',
-          ),
-        ),
-      );
-    }
+  void _handleDrop(Offset position, Icon icon) {
+    setState(() {
+      _droppedItems.add(DroppedItem(position: position, icon: icon));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('StreetAIbility'),
-        actions: [
-          IconButton(icon: const Icon(Icons.download), onPressed: exportDesign),
-          IconButton(
-            icon: const Icon(Icons.group),
-            onPressed: () => Navigator.pushNamed(context, '/community'),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () {},
+                child: const Text(
+                  'Design Your Street',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 20),
+              TextButton(
+                onPressed: () {},
+                child: const Text('Community Designs'),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.image),
+              tooltip: 'Generate DALL·E Image',
+              onPressed: _generateImage,
+            ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildTabCard()),
+              const SizedBox(width: 16),
+              Expanded(flex: 2, child: _buildMapCard()),
+              const SizedBox(width: 16),
+              Expanded(child: _buildScoreCard()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        children: const [
+          TabBar(
+            labelColor: Colors.black,
+            indicatorColor: Colors.black,
+            tabs: [Tab(text: 'Mobility'), Tab(text: 'Green')],
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: MobilityList(),
+            ),
           ),
         ],
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildMapCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
         children: [
-          if (_pollutionScore != null && _happinessScore != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  Text(
-                    'Pollution Score: $_pollutionScore',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(width: 20),
-                  Text(
-                    'Happiness Score: $_happinessScore',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: Row(
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _buildSidebar()),
-                Expanded(flex: 3, child: _buildMapEditor()),
+                const Text(
+                  'Your Street Canvas',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Search a street in Google Maps',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _searchLocation,
+                      child: const Text('Search'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: _initialPosition,
+                        zoom: 14,
+                      ),
+                      onMapCreated: (controller) {
+                        _mapController.complete(controller);
+                      },
+                      markers: _markers,
+                      scrollGesturesEnabled: !_isMapLocked,
+                      zoomGesturesEnabled: !_isMapLocked,
+                      rotateGesturesEnabled: !_isMapLocked,
+                      tiltGesturesEnabled: !_isMapLocked,
+                      myLocationEnabled: true,
+                      zoomControlsEnabled: false,
+                    ),
+                    Positioned.fill(
+                      child: DragTarget<Icon>(
+                        builder:
+                            (context, _, __) =>
+                                CustomPaint(painter: GridPainter(spacing: 20)),
+                        onAcceptWithDetails: (details) {
+                          final localPosition = (context.findRenderObject()
+                                  as RenderBox)
+                              .globalToLocal(details.offset);
+                          _handleDrop(localPosition, details.data);
+                        },
+                      ),
+                    ),
+                    for (var item in _droppedItems)
+                      Positioned(
+                        left: item.position.dx - 24,
+                        top: item.position.dy - 24,
+                        child: item.icon,
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          if (_generatedImageUrl != null && !kIsWeb)
+            Container(
+              height: 200,
+              padding: const EdgeInsets.all(8),
+              child: Image.network(_generatedImageUrl!, fit: BoxFit.cover),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildSidebar() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        Text(
-          'Green',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+  Widget _buildScoreCard() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Impact Scores',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            SizedBox(height: 24),
+            Text('Pollution'),
+            LinearProgressIndicator(value: 0.8),
+            SizedBox(height: 16),
+            Text('Happiness'),
+            LinearProgressIndicator(value: 0.2),
+          ],
         ),
-        SizedBox(height: 8),
-        DraggableIconItem(
-          icon: Icon(Icons.park, size: 48, color: Colors.green),
-          label: 'Street Trees',
-        ),
-        DraggableIconItem(
-          icon: Icon(Icons.grass, size: 48, color: Colors.green),
-          label: 'Planters',
-        ),
-        SizedBox(height: 24),
-        Text(
-          'Mobility',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        SizedBox(height: 8),
-        DraggableIconItem(
-          icon: Icon(Icons.directions_bike, size: 48, color: Colors.blue),
-          label: 'Bike Lane',
-        ),
-        DraggableIconItem(
-          icon: Icon(Icons.bus_alert, size: 48, color: Colors.blueGrey),
-          label: 'Bus Stop',
-        ),
-        SizedBox(height: 24),
-        Text(
-          'Social',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        SizedBox(height: 8),
-        DraggableIconItem(
-          icon: Icon(Icons.outdoor_grill, size: 48, color: Colors.redAccent),
-          label: 'BBQ',
-        ),
-        DraggableIconItem(
-          icon: Icon(Icons.event_seat, size: 48, color: Colors.brown),
-          label: 'Bench',
-        ),
-      ],
+      ),
     );
   }
+}
 
-  Widget _buildMapEditor() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final height = constraints.maxHeight;
-        final zoneLeft = width * 0.25;
-        final zoneRight = width * 0.75;
+class MobilityList extends StatelessWidget {
+  const MobilityList({super.key});
 
-        return Stack(
-          children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _initialPosition,
-                zoom: 14,
-              ),
-              onMapCreated: (controller) {
-                _mapController.complete(controller);
-                setState(() => _isMapInitialized = true);
-              },
-              markers: _markers,
-              myLocationEnabled: true,
-              scrollGesturesEnabled: !_isMapLocked,
-              zoomGesturesEnabled: !_isMapLocked,
-              rotateGesturesEnabled: !_isMapLocked,
-              tiltGesturesEnabled: !_isMapLocked,
-              onTap: (position) async {
-                if (!_isMapInitialized) return;
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: const Text("Confirm Street Location"),
-                        content: const Text(
-                          "Do you want to lock this location as your street?",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("No"),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Yes"),
-                          ),
-                        ],
-                      ),
-                );
-                if (confirmed != true) return;
-
-                final controller = await _mapController.future;
-                controller.animateCamera(
-                  CameraUpdate.newCameraPosition(
-                    CameraPosition(
-                      target: position,
-                      zoom: 18,
-                      tilt: 0,
-                      bearing: 0,
-                    ),
-                  ),
-                );
-
-                setState(() {
-                  _markers.clear();
-                  _markers.add(
-                    Marker(
-                      markerId: const MarkerId('selected'),
-                      position: position,
-                    ),
-                  );
-                  _isMapLocked = true;
-                });
-
-                final calculator = ScoreCalculator(
-                  treeCount:
-                      _droppedItems
-                          .where((item) => item.icon.icon == Icons.park)
-                          .length,
-                  greenModuleCount:
-                      _droppedItems
-                          .where(
-                            (item) => item.icon.icon == Icons.directions_bike,
-                          )
-                          .length,
-                  pollutingModuleCount: 1,
-                  amenityCount: 2,
-                  greenTransportCount: 1,
-                );
-
-                try {
-                  final pollution = await calculator.calculatePollutionScore(
-                    position.latitude,
-                    position.longitude,
-                  );
-                  final happiness = calculator.calculateHappinessScore();
-                  setState(() {
-                    _pollutionScore = pollution;
-                    _happinessScore = happiness;
-                  });
-                } catch (e) {
-                  debugPrint('Error calculating scores: $e');
-                }
-              },
+  @override
+  Widget build(BuildContext context) {
+    return TabBarView(
+      children: [
+        ListView(
+          children: const [
+            DraggableIconItem(
+              icon: Icon(Icons.directions_bike, size: 48, color: Colors.blue),
+              label: 'Bike Lane',
             ),
-            Positioned(
-              left: zoneLeft,
-              top: 0,
-              width: zoneRight - zoneLeft,
-              height: height,
-              child: IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    border: Border.all(color: Colors.green.shade700, width: 2),
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: DragTarget<Icon>(
-                builder: (context, _, __) => Container(),
-                onAcceptWithDetails: (details) {
-                  final pos = (context.findRenderObject() as RenderBox)
-                      .globalToLocal(details.offset);
-                  _handleDrop(pos, details.data);
-                },
-              ),
-            ),
-            for (var item in _droppedItems)
-              Positioned(
-                left: item.position.dx - 24,
-                top: item.position.dy - 24,
-                child: item.icon,
-              ),
           ],
-        );
-      },
+        ),
+        ListView(
+          children: const [
+            DraggableIconItem(
+              icon: Icon(Icons.park, size: 48, color: Colors.green),
+              label: 'Street Trees',
+            ),
+            DraggableIconItem(
+              icon: Icon(Icons.outdoor_grill, size: 48, color: Colors.brown),
+              label: 'BBQ & Seating Area',
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -530,72 +412,26 @@ class DraggableIconItem extends StatelessWidget {
   }
 }
 
-class CommunityDesignsScreen extends StatelessWidget {
-  const CommunityDesignsScreen({super.key});
+class GridPainter extends CustomPainter {
+  final double spacing;
+
+  GridPainter({required this.spacing});
 
   @override
-  Widget build(BuildContext context) {
-    final raw = html.window.localStorage['community_designs'];
-    final List<CommunityDesign> designs =
-        raw != null
-            ? (jsonDecode(raw) as List)
-                .map((e) => CommunityDesign.fromJson(e))
-                .toList()
-            : [];
+  void paint(Canvas canvas, Size size) {
+    final paint =
+        Paint()
+          ..color = const Color.fromRGBO(0, 0, 0, 0.1)
+          ..strokeWidth = 1;
 
-    designs.sort(
-      (a, b) => (b.happinessScore + b.pollutionScore).compareTo(
-        a.happinessScore + a.pollutionScore,
-      ),
-    );
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Community Designs')),
-      body: ListView.builder(
-        itemCount: designs.length,
-        itemBuilder: (context, index) {
-          final design = designs[index];
-          return Card(
-            margin: const EdgeInsets.all(8),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(12),
-              leading: Image.network(
-                design.imageUrl,
-                width: 64,
-                height: 64,
-                fit: BoxFit.cover,
-              ),
-              title: Text(design.name),
-              subtitle: Text(
-                'By ${design.author} — 🧘 ${design.happinessScore} 💨 ${design.pollutionScore}',
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.share),
-                tooltip: 'Share Design',
-                onPressed: () {
-                  final link = design.imageUrl;
-                  _shareDesign(context, link);
-                },
-              ),
-            ),
-          );
-        },
-      ),
-    );
+    for (double x = 0; x <= size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
   }
 
-  void _shareDesign(BuildContext context, String url) {
-    html.window.navigator.clipboard
-        ?.writeText(url)
-        .then((_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('🔗 Link copied to clipboard!')),
-          );
-        })
-        .catchError((_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('⚠️ Could not copy link.')),
-          );
-        });
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
