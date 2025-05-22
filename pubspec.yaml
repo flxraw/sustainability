@@ -44,6 +44,7 @@ dependencies:
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.1
 
+  uuid: ^4.2.2
   # Only for web
   universal_html: ^2.2.4
   # Optional for state management if needed
