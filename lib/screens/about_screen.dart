@@ -164,7 +164,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             const Text(
-              'Contributors',
+              'Creators',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -175,21 +175,21 @@ class AboutScreen extends StatelessWidget {
                 ContributorCard(
                   name: 'Felix Hauger',
                   role: 'Masters student at TUM',
-                  imagePath: 'assets/profiles/felix.png',
+                  imagePath: 'assets/profiles/felix.jpg',
                   isAsset: true,
                   linkedInUrl: 'https://www.linkedin.com/in/felix-hauger/',
                 ),
                 ContributorCard(
                   name: 'Bela Goldbrunner',
                   role: 'Masters student at TUM',
-                  imagePath: 'assets/profiles/bela.png',
+                  imagePath: 'assets/profiles/bela.jpg',
                   isAsset: true,
                   linkedInUrl: 'https://www.linkedin.com/in/belagoldbrunner',
                 ),
                 ContributorCard(
                   name: 'Josefine Jacobs',
                   role: 'Masters student at TUM',
-                  imagePath: 'assets/profiles/josefine.png',
+                  imagePath: 'assets/profiles/josefine.jpg',
                   isAsset: true,
                   linkedInUrl:
                       'https://www.linkedin.com/in/josefine-jacobs-85a270246/',
@@ -197,14 +197,14 @@ class AboutScreen extends StatelessWidget {
                 ContributorCard(
                   name: 'Jacqueline Walk',
                   role: 'Student at Hochschule München',
-                  imagePath: 'assets/profiles/jacqueline.png',
+                  imagePath: 'assets/profiles/jacqueline.jpg',
                   isAsset: true,
                   linkedInUrl: 'https://www.linkedin.com/in/jacqueline-walk/',
                 ),
                 ContributorCard(
                   name: 'Laila Yassin',
                   role: 'Student at Hochschule München',
-                  imagePath: 'assets/profiles/laila.png',
+                  imagePath: 'assets/profiles/laila.jpg',
                   isAsset: true,
                   linkedInUrl: 'https://www.linkedin.com/in/lailayassin/',
                 ),
@@ -242,6 +242,11 @@ class AboutScreen extends StatelessWidget {
                       ),
                     ),
                     child: const Text('Contact Us'),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Email: felix.hauger@tum.de',
+                    style: TextStyle(fontSize: 16),
                   ),
                 ],
               ),
@@ -333,6 +338,7 @@ class ContributorCard extends StatelessWidget {
         child: Column(
           children: [
             CircleAvatar(
+              backgroundColor: Colors.grey[200],
               backgroundImage:
                   isAsset
                       ? AssetImage(imagePath)

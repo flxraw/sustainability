@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:screenshot/screenshot.dart';
 
 import '../models/dropped_item.dart';
 import '../services/score_calculator.dart';
 import '../widgets/score_display.dart';
-import '../services/google_streetview_service.dart';
+import 'design_detail_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -22,6 +24,7 @@ class _MainScreenState extends State<MainScreen> {
   final Completer<GoogleMapController> _mapController = Completer();
   final TextEditingController _searchController = TextEditingController();
   final List<DroppedItem> _droppedItems = [];
+  final ScreenshotController _screenshotController = ScreenshotController();
 
   LatLng _mapCenter = const LatLng(48.137154, 11.576124);
   Marker? _selectedMarker;
@@ -88,18 +91,49 @@ class _MainScreenState extends State<MainScreen> {
       });
 
       _updateScores();
+    }
+  }
 
-      try {
-        if (_searchedAddress != null) {
-          final imageFile = await GoogleStreetViewService.fetchStreetViewImage(
-            _searchedAddress!,
-            dotenv.env['google_nerv']!,
-          );
-          _showMessage('Street View image fetched: ${imageFile.path}');
-        }
-      } catch (e) {
-        _showMessage('Error fetching Street View image.');
-      }
+  Future<void> _publishDesign() async {
+    final Uint8List? imageBytes = await _screenshotController.capture();
+    if (imageBytes == null) {
+      _showMessage("Failed to capture image.");
+      return;
+    }
+
+    String prompt =
+        'A realistic street view of $_searchedAddress with the following features: ';
+    final Set<String> addedElements =
+        _droppedItems.map((item) => item.type).toSet();
+    prompt += addedElements.join(', ');
+
+    final response = await http.post(
+      Uri.parse('https://api.openai.com/v1/images/generations'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${dotenv.env['OPENAI_API_KEY']}',
+      },
+      body: jsonEncode({
+        'model': 'dall-e-3',
+        'prompt': prompt,
+        'n': 1,
+        'size': '1024x1024',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final imageUrl = data['data'][0]['url'];
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DesignDetailScreen(imageUrl: imageUrl),
+        ),
+      );
+    } else {
+      _showMessage(
+        'Failed to generate image. Status code: ${response.statusCode}',
+      );
     }
   }
 
@@ -145,13 +179,8 @@ class _MainScreenState extends State<MainScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Widget _buildTool(
-    String type,
-    String imageName,
-    String label,
-    String classType,
-  ) {
-    final imagePath = 'assets/icons/$imageName.png';
+  Widget _buildTool(String type, String icon, String label, String classType) {
+    final imagePath = 'assets/icons/$icon.png';
     final widget = Column(
       children: [
         Image.asset(imagePath, width: 40, height: 40),
@@ -223,7 +252,8 @@ class _MainScreenState extends State<MainScreen> {
                       child: const Text('Home'),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed:
+                          () => Navigator.pushNamed(context, '/community'),
                       child: const Text('Community Designs'),
                     ),
                     TextButton(onPressed: () {}, child: const Text('Sign in')),
@@ -239,60 +269,24 @@ class _MainScreenState extends State<MainScreen> {
           Expanded(
             child: Row(
               children: [
+                // Sidebar
                 Container(
-                  width: 260,
+                  width: 80,
                   color: Colors.black,
-                  padding: const EdgeInsets.all(12),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Transformation Elements',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '🌿 Green',
-                          style: TextStyle(color: Colors.greenAccent),
-                        ),
-                        _buildTool('tree', 'Tree', 'Tree', 'green'),
-                        _buildTool('fountain', 'Fountain', 'Fountain', 'green'),
-                        _buildTool('charger', 'Charger', 'Charger', 'green'),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '🚲 Mobility',
-                          style: TextStyle(color: Colors.lightBlueAccent),
-                        ),
-                        _buildTool(
-                          'bus_stop',
-                          'Bus stop',
-                          'Bus Stop',
-                          'mobility',
-                        ),
-                        _buildTool(
-                          'bike_lane',
-                          'Bike lane',
-                          'Bike Lane',
-                          'mobility',
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '👥 Social',
-                          style: TextStyle(color: Colors.purpleAccent),
-                        ),
-                        _buildTool(
-                          'pedestrians',
-                          'Pedestrians',
-                          'Pedestrian Zone',
-                          'social',
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildTool('tree', 'Tree', 'Tree', 'green'),
+                      _buildTool('charger', 'Charger', 'Charger', 'green'),
+                      _buildTool(
+                        'pedestrians',
+                        'Pedestrians',
+                        'People',
+                        'mobility',
+                      ),
+                      _buildTool('bike_lane', 'Bike lane', 'Bike', 'mobility'),
+                      _buildTool('bus_stop', 'Bus stop', 'Bus', 'mobility'),
+                    ],
                   ),
                 ),
                 Expanded(
@@ -309,55 +303,64 @@ class _MainScreenState extends State<MainScreen> {
 
                       return Stack(
                         children: [
-                          GoogleMap(
-                            initialCameraPosition: CameraPosition(
-                              target: _mapCenter,
-                              zoom: 14,
-                            ),
-                            onMapCreated: (c) => _mapController.complete(c),
-                            myLocationEnabled: true,
-                            scrollGesturesEnabled: !_mapLocked,
-                            zoomGesturesEnabled: !_mapLocked,
-                            rotateGesturesEnabled: !_mapLocked,
-                            markers:
-                                _selectedMarker != null
-                                    ? {_selectedMarker!}
-                                    : {},
-                          ),
-                          Positioned.fromRect(
-                            rect: streetBounds,
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  border: Border.all(
-                                    color: Colors.green.shade700,
-                                    width: 2,
+                          Screenshot(
+                            controller: _screenshotController,
+                            child: Stack(
+                              children: [
+                                GoogleMap(
+                                  initialCameraPosition: CameraPosition(
+                                    target: _mapCenter,
+                                    zoom: 14,
+                                  ),
+                                  onMapCreated:
+                                      (c) => _mapController.complete(c),
+                                  myLocationEnabled: true,
+                                  scrollGesturesEnabled: !_mapLocked,
+                                  zoomGesturesEnabled: !_mapLocked,
+                                  rotateGesturesEnabled: !_mapLocked,
+                                  markers:
+                                      _selectedMarker != null
+                                          ? {_selectedMarker!}
+                                          : {},
+                                ),
+                                Positioned.fromRect(
+                                  rect: streetBounds,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withOpacity(0.1),
+                                        border: Border.all(
+                                          color: Colors.green.shade700,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: DragTarget<_DragPayload>(
-                              builder: (_, __, ___) => const SizedBox.expand(),
-                              onAcceptWithDetails:
-                                  (details) => _handleDrop(
-                                    details.offset,
-                                    details.data.imagePath,
-                                    details.data.type,
+                                Positioned.fill(
+                                  child: DragTarget<_DragPayload>(
+                                    builder:
+                                        (_, __, ___) => const SizedBox.expand(),
+                                    onAcceptWithDetails:
+                                        (details) => _handleDrop(
+                                          details.offset,
+                                          details.data.imagePath,
+                                          details.data.type,
+                                        ),
                                   ),
-                            ),
-                          ),
-                          ..._droppedItems.map(
-                            (item) => Positioned(
-                              left: item.position.dx - 24,
-                              top: item.position.dy - 24,
-                              child: Image.asset(
-                                item.imagePath,
-                                width: 48,
-                                height: 48,
-                              ),
+                                ),
+                                ..._droppedItems.map(
+                                  (item) => Positioned(
+                                    left: item.position.dx - 24,
+                                    top: item.position.dy - 24,
+                                    child: Image.asset(
+                                      item.imagePath,
+                                      width: 48,
+                                      height: 48,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Positioned(
@@ -400,7 +403,6 @@ class _MainScreenState extends State<MainScreen> {
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.3),
                                     blurRadius: 10,
-                                    offset: const Offset(0, 6),
                                   ),
                                 ],
                               ),
@@ -442,7 +444,7 @@ class _MainScreenState extends State<MainScreen> {
                   child: const Text('Reset Elements'),
                 ),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _publishDesign,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,

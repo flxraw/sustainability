@@ -29,6 +29,7 @@ dependencies:
   google_maps_flutter_web: ^0.5.4+2
   cupertino_icons: ^1.0.8
   flutter_google_street_view: ^3.1.4
+  screenshot: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -41,3 +42,8 @@ flutter:
     - assets/.env
     - assets/icons/
     - assets/profiles/
+    - assets/profiles/felix.jpg
+    - assets/profiles/bela.jpg
+    - assets/profiles/josefine.jpg
+    - assets/profiles/jacqueline.jpg
+    - assets/profiles/laila.jpg
