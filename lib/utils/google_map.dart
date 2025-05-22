@@ -13,11 +13,15 @@ class PlatformMap extends StatelessWidget {
 
     // ignore: undefined_prefixed_name
     ui.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+      final containerId = 'map-container-$viewId';
+
       final container =
           DivElement()
-            ..id = 'map'
+            ..id = containerId
             ..style.width = '100%'
-            ..style.height = '100%';
+            ..style.height = '100%'
+            ..style.border = 'none'
+            ..text = 'Loading map...';
 
       final apiKey = dotenv.env['google_nerv'];
       final callbackName = 'initMapCallback$viewId';
@@ -27,18 +31,29 @@ class PlatformMap extends StatelessWidget {
           'center': js.JsObject.jsify({'lat': 48.137154, 'lng': 11.576124}),
           'zoom': 14,
         });
+
         final mapConstructor = js.context['google']['maps']['Map'];
-        mapConstructor.callMethod('call', [null, container, mapOptions]);
+        final element = document.getElementById(containerId);
+        if (element != null) {
+          mapConstructor.callMethod('call', [null, element, mapOptions]);
+        } else {
+          print('❌ Google Map container not found.');
+        }
       });
 
-      ScriptElement script =
-          ScriptElement()
-            ..type = 'text/javascript'
-            ..async = true
-            ..defer = true
-            ..src =
-                'https://maps.googleapis.com/maps/api/js?key=$apiKey&callback=$callbackName';
-      document.head!.append(script);
+      // Prevent double script injection
+      if (document
+          .querySelectorAll('script[src*="maps.googleapis.com"]')
+          .isEmpty) {
+        final script =
+            ScriptElement()
+              ..type = 'text/javascript'
+              ..async = true
+              ..defer = true
+              ..src =
+                  'https://maps.googleapis.com/maps/api/js?key=$apiKey&callback=$callbackName';
+        document.head!.append(script);
+      }
 
       return container;
     });
