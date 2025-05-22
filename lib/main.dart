@@ -6,8 +6,9 @@ import 'screens/main_screen.dart';
 import 'screens/about_screen.dart';
 
 Future<void> main() async {
-  await dotenv.load(fileName: ".env");
-  runApp(const StreetAIApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: 'assets/.env');
+  runApp(const StreetAIbilityApp());
 }
 
 class StreetAIApp extends StatelessWidget {
