@@ -45,8 +45,7 @@ class ScoreCalculator {
       final data = jsonDecode(response.body);
       final indexes = data['currentConditions'][0]['indexes'];
       if (indexes != null && indexes.isNotEmpty) {
-        final aqi = indexes[0]['aqi'];
-        return (aqi as num).round();
+        return (indexes[0]['aqi'] as num).round();
       } else {
         throw Exception('Invalid air quality data structure');
       }
@@ -57,23 +56,21 @@ class ScoreCalculator {
 
   Future<int> calculatePollutionScore(double lat, double lng) async {
     final basePollution = await fetchBasePollution(lat, lng);
-    int pollutionScore =
+    final score =
         basePollution -
         (treeCount * 4) -
         (greenModuleCount * 2) +
         (pollutingModuleCount * 3);
-
-    return pollutionScore.clamp(0, 100);
+    return score.clamp(0, 100);
   }
 
   int calculateHappinessScore() {
-    int happinessScore =
+    final score =
         baseHappiness +
         (treeCount * 3) +
         (amenityCount * 2) +
         (greenTransportCount * 4) -
         (pollutingModuleCount * 5);
-
-    return happinessScore.clamp(0, 100);
+    return score.clamp(0, 100);
   }
 }

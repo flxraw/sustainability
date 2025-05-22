@@ -307,6 +307,53 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
     }
   }
 
+  Widget _buildSidebar() {
+    return Container(
+      width: 200,
+      color: Colors.grey[100],
+      child: ListView(
+        padding: const EdgeInsets.all(8),
+        children: [
+          const Text('Green', style: TextStyle(fontWeight: FontWeight.bold)),
+          const _DraggableIcon(
+            icon: Icon(Icons.park, size: 40, color: Colors.green),
+            label: 'Trees',
+            type: 'tree',
+          ),
+          const _DraggableIcon(
+            icon: Icon(Icons.grass, size: 40, color: Colors.green),
+            label: 'Planter',
+            type: 'planter',
+          ),
+          const SizedBox(height: 16),
+          const Text('Mobility', style: TextStyle(fontWeight: FontWeight.bold)),
+          const _DraggableIcon(
+            icon: Icon(Icons.directions_bike, size: 40, color: Colors.blue),
+            label: 'Bike',
+            type: 'bike',
+          ),
+          const _DraggableIcon(
+            icon: Icon(Icons.bus_alert, size: 40, color: Colors.grey),
+            label: 'Bus',
+            type: 'bus',
+          ),
+          const SizedBox(height: 16),
+          const Text('Social', style: TextStyle(fontWeight: FontWeight.bold)),
+          const _DraggableIcon(
+            icon: Icon(Icons.outdoor_grill, size: 40, color: Colors.red),
+            label: 'BBQ',
+            type: 'bbq',
+          ),
+          const _DraggableIcon(
+            icon: Icon(Icons.event_seat, size: 40, color: Colors.brown),
+            label: 'Bench',
+            type: 'bench',
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -316,6 +363,17 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: _exportDesign,
+          ),
+          IconButton(
+            icon: const Icon(Icons.people),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CommunityDesignsScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -338,7 +396,20 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
           if (_pollutionScore != null && _happinessScore != null)
             Padding(
               padding: const EdgeInsets.all(8),
-              child: Text('💨 $_pollutionScore    🧘 $_happinessScore'),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Chip(
+                    label: Text('Air: $_pollutionScore'),
+                    avatar: const Icon(Icons.air, color: Colors.blue),
+                  ),
+                  const SizedBox(width: 16),
+                  Chip(
+                    label: Text('Happiness: $_happinessScore'),
+                    avatar: const Icon(Icons.mood, color: Colors.orange),
+                  ),
+                ],
+              ),
             ),
           Expanded(
             child: Row(
@@ -421,48 +492,6 @@ class _StreetEditorScreenState extends State<StreetEditorScreen> {
       ),
     );
   }
-
-  Widget _buildSidebar() {
-    return Container(
-      width: 200,
-      color: Colors.grey[100],
-      child: ListView(
-        padding: const EdgeInsets.all(8),
-        children: const [
-          _DraggableIcon(
-            icon: Icon(Icons.park, size: 40, color: Colors.green),
-            label: 'Trees',
-            type: 'tree',
-          ),
-          _DraggableIcon(
-            icon: Icon(Icons.grass, size: 40, color: Colors.green),
-            label: 'Planter',
-            type: 'planter',
-          ),
-          _DraggableIcon(
-            icon: Icon(Icons.directions_bike, size: 40, color: Colors.blue),
-            label: 'Bike',
-            type: 'bike',
-          ),
-          _DraggableIcon(
-            icon: Icon(Icons.bus_alert, size: 40, color: Colors.grey),
-            label: 'Bus',
-            type: 'bus',
-          ),
-          _DraggableIcon(
-            icon: Icon(Icons.outdoor_grill, size: 40, color: Colors.red),
-            label: 'BBQ',
-            type: 'bbq',
-          ),
-          _DraggableIcon(
-            icon: Icon(Icons.event_seat, size: 40, color: Colors.brown),
-            label: 'Bench',
-            type: 'bench',
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _DragPayload {
@@ -493,5 +522,56 @@ class _DraggableIcon extends StatelessWidget {
       ),
       child: ListTile(leading: icon, title: Text(label)),
     );
+  }
+}
+
+class CommunityDesignsScreen extends StatelessWidget {
+  const CommunityDesignsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Community Designs')),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _loadCommunityDesigns(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final designs = snapshot.data ?? [];
+          designs.sort((a, b) {
+            final scoreA =
+                (a['pollutionScore'] ?? 0) + (a['happinessScore'] ?? 0);
+            final scoreB =
+                (b['pollutionScore'] ?? 0) + (b['happinessScore'] ?? 0);
+            return scoreB.compareTo(scoreA);
+          });
+          return ListView.builder(
+            itemCount: designs.length,
+            itemBuilder: (context, index) {
+              final design = designs[index];
+              return ListTile(
+                leading: Image.network(design['imageUrl']),
+                title: Text(design['name']),
+                subtitle: Text('By ${design['author']}'),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Air: ${design['pollutionScore']}'),
+                    Text('Happy: ${design['happinessScore']}'),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadCommunityDesigns() async {
+    final prefs = await SharedPreferences.getInstance();
+    final designs = prefs.getStringList('community_designs') ?? [];
+    return designs.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
   }
 }

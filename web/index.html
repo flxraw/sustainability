@@ -1,24 +1,60 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <base href="/" />
     <meta charset="UTF-8" />
-    <title>StreetAIbility</title>
-    <meta name="description" content="Urban street redesign web app using Flutter and Google Maps." />
+    <meta content="IE=Edge" http-equiv="X-UA-Compatible" />
+    <meta name="description" content="A new Flutter project." />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>streetaibility</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/png" href="favicon.png" />
     <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
+      .map-grid {
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
-        overflow: hidden;
+        height: 100%;
+        pointer-events: none;
+        background-image: 
+          linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px);
+        background-size: 20px 20px;
+        z-index: 1000;
       }
     </style>
-    <!-- ✅ Load Google Maps JavaScript SDK -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+
+    <!-- ✅ Dein eigener Google Maps API-Key -->
+    <script 
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDHGRuC1WdGXgkZReqtvi7Hdp8d7-H2ncM&callback=initMap" 
+      async 
+      defer>
+    </script>
+
+    <script>
+      function initMap() {
+        const el = document.getElementById("map");
+        if (!el) {
+          console.error("❌ Element #map nicht gefunden!");
+          return;
+        }
+
+        const map = new google.maps.Map(el, {
+          center: { lat: 37.7749, lng: -122.4194 },
+          zoom: 18,
+        });
+
+        const grid = document.createElement("div");
+        grid.className = "map-grid";
+        el.appendChild(grid);
+      }
+    </script>
   </head>
+
   <body>
-    <script src="main.dart.js"></script>
+    <!-- Wichtig: Flutter erzeugt #map automatisch im Dart-Code -->
+    <script src="flutter_bootstrap.js" async></script>
   </body>
-</html> 
+</html>

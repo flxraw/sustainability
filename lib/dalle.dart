@@ -9,7 +9,6 @@ class DalleService {
 
   DalleService({required this.authToken});
 
-  /// Sends a request to create an image from a textual prompt
   Future<String?> generateImage(String promptText) async {
     final uri = Uri.parse('https://api.openai.com/v1/images/generations');
 
@@ -31,13 +30,11 @@ class DalleService {
     }
   }
 
-  /// Modifies a local image based on a prompt and transparent overlay
   Future<String?> editImage({
     required File imageFile,
     required String promptText,
   }) async {
     final uri = Uri.parse('https://api.openai.com/v1/images/edits');
-
     final maskFile = await createTransparentMask(imageFile);
 
     final request =
@@ -58,12 +55,11 @@ class DalleService {
       final json = jsonDecode(resBody);
       return json['data'][0]['url'];
     } else {
-      print("⚠️ Edit operation failed with status: ${streamed.statusCode}");
+      print("⚠️ Edit operation failed: ${streamed.statusCode}");
       return null;
     }
   }
 
-  /// Saves memory image bytes, triggers edit with prompt
   Future<String?> processImageFromBytes({
     required Uint8List imageBytes,
     required String promptText,
@@ -74,7 +70,6 @@ class DalleService {
     return await editImage(imageFile: tempImageFile, promptText: promptText);
   }
 
-  /// Generates a transparent mask matching size of original
   Future<File> createTransparentMask(File originalImageFile) async {
     final bytes = await originalImageFile.readAsBytes();
     final original = img.decodeImage(bytes);
@@ -84,7 +79,6 @@ class DalleService {
     }
 
     final mask = img.Image(width: original.width, height: original.height);
-
     for (int y = 0; y < mask.height; y++) {
       for (int x = 0; x < mask.width; x++) {
         mask.setPixelRgba(x, y, 0, 0, 0, 0);
@@ -94,7 +88,6 @@ class DalleService {
     final maskPath = '${originalImageFile.parent.path}/generated_mask.png';
     final maskFile = File(maskPath);
     await maskFile.writeAsBytes(img.encodePng(mask));
-
     return maskFile;
   }
 }
