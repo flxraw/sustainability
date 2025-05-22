@@ -8,7 +8,7 @@ import 'screens/about_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: 'assets/.env');
-  runApp(const StreetAIbilityApp());
+  runApp(const StreetAIApp()); // Fixed class name here
 }
 
 class StreetAIApp extends StatelessWidget {
@@ -17,7 +17,7 @@ class StreetAIApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'StreeAIability',
+      title: 'StreetAIbility',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.grey[100],

@@ -741,14 +741,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.2"
-  uuid:
-    dependency: "direct main"
-    description:
-      name: uuid
-      sha256: a5be9ef6618a7ac1e964353ef476418026db906c4facdedaa299b7a2e71690ff
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.5.1"
   url_launcher:
     dependency: "direct main"
     description:
@@ -813,7 +805,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.4"
->>>>>>>>> Temporary merge branch 2
+  uuid:
+    dependency: "direct main"
+    description:
+      name: uuid
+      sha256: a5be9ef6618a7ac1e964353ef476418026db906c4facdedaa299b7a2e71690ff
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.1"
   vector_graphics:
     dependency: transitive
     description:
@@ -855,7 +854,7 @@ packages:
     source: hosted
     version: "14.3.1"
   web:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: web
       sha256: "97da13628db363c635202ad97068d47c5b8aa555808e7a9411963c533b449b27"
