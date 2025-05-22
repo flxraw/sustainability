@@ -9,6 +9,7 @@ class DalleService {
 
   DalleService({required this.authToken});
 
+  /// Generates an image using DALL·E and returns a base64-encoded image string
   Future<String?> generateImage(String promptText) async {
     final uri = Uri.parse('https://api.openai.com/v1/images/generations');
 
@@ -18,18 +19,24 @@ class DalleService {
         'Authorization': 'Bearer $authToken',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({'prompt': promptText, 'n': 1, 'size': '512x512'}),
+      body: jsonEncode({
+        'prompt': promptText,
+        'n': 1,
+        'size': '1024x1024',
+        'response_format': 'b64_json', // ✅ Return base64 instead of URL
+      }),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['data'][0]['url'];
+      return data['data'][0]['b64_json']; // ✅ Base64 image
     } else {
       print('⚠️ Image generation failed: ${response.body}');
       return null;
     }
   }
 
+  /// Edits an image using a transparent mask and returns a base64 image string
   Future<String?> editImage({
     required File imageFile,
     required String promptText,
@@ -43,6 +50,8 @@ class DalleService {
           ..fields['prompt'] = promptText
           ..fields['n'] = '1'
           ..fields['size'] = '1024x1024'
+          ..fields['response_format'] =
+              'b64_json' // ✅ Important for editing too
           ..files.add(
             await http.MultipartFile.fromPath('image', imageFile.path),
           )
@@ -53,13 +62,14 @@ class DalleService {
     if (streamed.statusCode == 200) {
       final resBody = await streamed.stream.bytesToString();
       final json = jsonDecode(resBody);
-      return json['data'][0]['url'];
+      return json['data'][0]['b64_json'];
     } else {
       print("⚠️ Edit operation failed: ${streamed.statusCode}");
       return null;
     }
   }
 
+  /// Accepts raw image bytes, writes to temp file, and performs edit
   Future<String?> processImageFromBytes({
     required Uint8List imageBytes,
     required String promptText,
@@ -70,6 +80,7 @@ class DalleService {
     return await editImage(imageFile: tempImageFile, promptText: promptText);
   }
 
+  /// Creates a transparent PNG mask (all alpha 0) matching the image size
   Future<File> createTransparentMask(File originalImageFile) async {
     final bytes = await originalImageFile.readAsBytes();
     final original = img.decodeImage(bytes);

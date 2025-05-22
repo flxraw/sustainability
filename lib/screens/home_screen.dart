@@ -71,12 +71,14 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/community');
+                        },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Color(0xFFCEFF00)),
                         ),
-                        child: const Text('View Gallery'),
+                        child: const Text('Community Designs'),
                       ),
                     ],
                   ),

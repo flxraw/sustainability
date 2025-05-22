@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'screens/home_screen.dart';
-import 'screens/main_screen.dart';
+import 'screens/main_screen.dart'; // This now contains MainScreen class
 import 'screens/about_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: 'assets/.env');
-  runApp(const StreetAIApp()); // Fixed class name here
+  runApp(const StreetAIApp());
 }
 
 class StreetAIApp extends StatelessWidget {

@@ -1,14 +1,12 @@
-// main_screen.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:screenshot/screenshot.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/dropped_item.dart';
 import '../services/score_calculator.dart';
@@ -42,7 +40,12 @@ class _MainScreenState extends State<MainScreen> {
 
     _searchedAddress = query;
 
-    final apiKey = dotenv.env['google_nerv']!;
+    final apiKey = dotenv.env['google_nerv'];
+    if (apiKey == null) {
+      _showMessage("Google Maps API key not found.");
+      return;
+    }
+
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(query)}&region=de&key=$apiKey',
     );
@@ -100,7 +103,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _publishDesign() async {
     final Uint8List? imageBytes = await _screenshotController.capture();
     if (imageBytes == null) {
-      _showMessage("Failed to capture image.");
+      _showMessage("⚠️ Failed to capture screenshot.");
       return;
     }
 
@@ -114,28 +117,35 @@ class _MainScreenState extends State<MainScreen> {
       Uri.parse('https://api.openai.com/v1/images/generations'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${dotenv.env['OPENAI_API_KEY']}',
+        'Authorization': 'Bearer ${dotenv.env['OPENAI_API_KEY'] ?? ''}',
       },
       body: jsonEncode({
         'model': 'dall-e-3',
         'prompt': prompt,
         'n': 1,
         'size': '1024x1024',
+        'response_format': 'b64_json', // ✅ Return base64
       }),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final imageUrl = data['data'][0]['url'];
+      final b64Image = data['data'][0]['b64_json'];
+
+      if (b64Image == null || b64Image.toString().isEmpty) {
+        _showMessage("⚠️ No image returned from the API.");
+        return;
+      }
+
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => DesignDetailScreen(imageUrl: imageUrl),
+          builder: (_) => DesignDetailScreen(base64Image: b64Image),
         ),
       );
     } else {
       _showMessage(
-        'Failed to generate image. Status code: ${response.statusCode}',
+        '⚠️ Failed to generate image. Status code: ${response.statusCode}',
       );
     }
   }
@@ -273,23 +283,22 @@ class _MainScreenState extends State<MainScreen> {
           Expanded(
             child: Row(
               children: [
-                // Sidebar
                 Container(
                   width: 80,
                   color: Colors.black,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildTool('tree', 'Tree', 'Tree', 'green'),
-                      _buildTool('charger', 'Charger', 'Charger', 'green'),
+                      _buildTool('tree', 'tree', 'tree', 'green'),
+                      _buildTool('charger', 'charger', 'charger', 'green'),
                       _buildTool(
                         'pedestrians',
-                        'Pedestrians',
+                        'pedestrians',
                         'People',
                         'mobility',
                       ),
-                      _buildTool('bike_lane', 'Bike lane', 'Bike', 'mobility'),
-                      _buildTool('bus_stop', 'Bus stop', 'Bus', 'mobility'),
+                      _buildTool('bike_lane', 'bike_lane', 'Bike', 'mobility'),
+                      _buildTool('bus_stop', 'bus_stop', 'Bus', 'mobility'),
                     ],
                   ),
                 ),
