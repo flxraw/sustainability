@@ -1,3 +1,5 @@
+// main_screen.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -59,14 +61,23 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _confirmStreetSelection(LatLng position) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Adresse bestätigen'),
-        content: const Text('Möchtest du diese Straße sperren und bearbeiten?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Nein')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ja')),
-        ],
-      ),
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Adresse bestätigen'),
+            content: const Text(
+              'Möchtest du diese Straße sperren und bearbeiten?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Nein'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Ja'),
+              ),
+            ],
+          ),
     );
 
     if (confirmed == true) {
@@ -75,7 +86,10 @@ class _MainScreenState extends State<MainScreen> {
 
       setState(() {
         _mapCenter = position;
-        _selectedMarker = Marker(markerId: const MarkerId('selected'), position: position);
+        _selectedMarker = Marker(
+          markerId: const MarkerId('selected'),
+          position: position,
+        );
         _mapLocked = true;
       });
 
@@ -153,7 +167,10 @@ class _MainScreenState extends State<MainScreen> {
       greenModuleCount: _droppedItems.where((i) => i.type == 'charger').length,
       pollutingModuleCount: 1,
       amenityCount: _droppedItems.where((i) => i.type == 'pedestrians').length,
-      greenTransportCount: _droppedItems.where((i) => i.type == 'bike_lane' || i.type == 'bus_stop').length,
+      greenTransportCount:
+          _droppedItems
+              .where((i) => i.type == 'bike_lane' || i.type == 'bus_stop')
+              .length,
     );
 
     setState(() {
@@ -175,9 +192,10 @@ class _MainScreenState extends State<MainScreen> {
       ],
     );
 
-    final bgColor = classType == 'green'
-        ? Colors.green[800]
-        : classType == 'mobility'
+    final bgColor =
+        classType == 'green'
+            ? Colors.green[800]
+            : classType == 'mobility'
             ? Colors.blue[700]
             : Colors.purple[700];
 
@@ -209,11 +227,24 @@ class _MainScreenState extends State<MainScreen> {
                 Expanded(
                   child: RichText(
                     text: const TextSpan(
-                      style: TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.black),
+                      style: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
                       children: [
                         TextSpan(text: 'StreetAI-'),
-                        TextSpan(text: 'ability\n', style: TextStyle(fontSize: 48)),
-                        TextSpan(text: 'Design your street of tomorrow', style: TextStyle(fontWeight: FontWeight.normal, fontSize: 16)),
+                        TextSpan(
+                          text: 'ability\n',
+                          style: TextStyle(fontSize: 48),
+                        ),
+                        TextSpan(
+                          text: 'Design your street of tomorrow',
+                          style: TextStyle(
+                            fontWeight: FontWeight.normal,
+                            fontSize: 16,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -230,7 +261,10 @@ class _MainScreenState extends State<MainScreen> {
                       child: const Text('Community Designs'),
                     ),
                     TextButton(onPressed: () {}, child: const Text('Sign in')),
-                    TextButton(onPressed: () => Navigator.pushNamed(context, '/about'), child: const Text('About')),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/about'),
+                      child: const Text('About'),
+                    ),
                   ],
                 ),
               ],
@@ -264,7 +298,12 @@ class _MainScreenState extends State<MainScreen> {
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
                       final height = constraints.maxHeight;
-                      final streetBounds = Rect.fromLTWH(width * 0.25, 0, width * 0.5, height);
+                      final streetBounds = Rect.fromLTWH(
+                        width * 0.25,
+                        0,
+                        width * 0.5,
+                        height,
+                      );
 
                       return Stack(
                         key: _canvasKey,
@@ -281,6 +320,7 @@ class _MainScreenState extends State<MainScreen> {
                                   onMapCreated:
                                       (c) => _mapController.complete(c),
                                   myLocationEnabled: true,
+                                  zoomControlsEnabled: !_mapLocked,
                                   scrollGesturesEnabled: !_mapLocked,
                                   zoomGesturesEnabled: !_mapLocked,
                                   rotateGesturesEnabled: !_mapLocked,
@@ -288,35 +328,7 @@ class _MainScreenState extends State<MainScreen> {
                                       _selectedMarker != null
                                           ? {_selectedMarker!}
                                           : {},
-                          GoogleMap(
-                            initialCameraPosition: CameraPosition(target: _mapCenter, zoom: 14),
-                            onMapCreated: (c) => _mapController.complete(c),
-                            myLocationEnabled: true,
-                            zoomControlsEnabled: !_mapLocked,  // NEU
-                            scrollGesturesEnabled: !_mapLocked,
-                            zoomGesturesEnabled: !_mapLocked,
-                            rotateGesturesEnabled: !_mapLocked,
-                            markers: _selectedMarker != null ? {_selectedMarker!} : {},
-                          ),
-                          Positioned.fromRect(
-                            rect: streetBounds,
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  border: Border.all(color: Colors.green.shade700, width: 2),
                                 ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: DragTarget<_DragPayload>(
-                              builder: (_, __, ___) => const SizedBox.expand(),
-                              onAcceptWithDetails: (details) => _handleDrop(
-                                details.offset,
-                                details.data.imagePath,
-                                details.data.type,
-                              ),
                                 Positioned.fromRect(
                                   rect: streetBounds,
                                   child: IgnorePointer(
@@ -367,14 +379,21 @@ class _MainScreenState extends State<MainScreen> {
                               style: const TextStyle(color: Colors.black),
                               decoration: InputDecoration(
                                 hintText: 'Straßenname eingeben...',
-                                hintStyle: const TextStyle(color: Colors.black54),
+                                hintStyle: const TextStyle(
+                                  color: Colors.black54,
+                                ),
                                 filled: true,
                                 fillColor: Colors.white,
                                 suffixIcon: IconButton(
-                                  icon: const Icon(Icons.search, color: Colors.black),
+                                  icon: const Icon(
+                                    Icons.search,
+                                    color: Colors.black,
+                                  ),
                                   onPressed: _searchLocation,
                                 ),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                             ),
                           ),
@@ -396,7 +415,10 @@ class _MainScreenState extends State<MainScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Impact Scores', style: TextStyle(color: Colors.white)),
+                                  const Text(
+                                    'Impact Scores',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
                                   const SizedBox(height: 12),
                                   ImpactScoreDisplay(
                                     pollution: _pollutionScore ?? 80,
