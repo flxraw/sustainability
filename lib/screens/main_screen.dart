@@ -68,7 +68,7 @@ class _MainScreenState extends State<MainScreen> {
 
     if (confirmed == true) {
       final controller = await _mapController.future;
-      await controller.animateCamera(CameraUpdate.newLatLngZoom(position, 18));
+      await controller.animateCamera(CameraUpdate.newLatLngZoom(position, 19));
 
       setState(() {
         _mapCenter = position;
@@ -237,6 +237,7 @@ class _MainScreenState extends State<MainScreen> {
                             initialCameraPosition: CameraPosition(target: _mapCenter, zoom: 14),
                             onMapCreated: (c) => _mapController.complete(c),
                             myLocationEnabled: true,
+                            zoomControlsEnabled: !_mapLocked,  // NEU
                             scrollGesturesEnabled: !_mapLocked,
                             zoomGesturesEnabled: !_mapLocked,
                             rotateGesturesEnabled: !_mapLocked,
