@@ -240,6 +240,8 @@ class _MainScreenState extends State<MainScreen> {
                             zoomControlsEnabled: !_mapLocked,  // NEU
                             scrollGesturesEnabled: !_mapLocked,
                             zoomGesturesEnabled: !_mapLocked,
+                            rotateGesturesEnabled: false,         // Diese zwei deaktivieren Tastatur-/Pfeilbewegung
+                            tiltGesturesEnabled: false,           // 👈 wichtig für Pfeiltasten-Effekt!
                             rotateGesturesEnabled: !_mapLocked,
                             markers: _selectedMarker != null ? {_selectedMarker!} : {},
                           ),
