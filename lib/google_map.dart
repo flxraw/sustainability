@@ -1,74 +1,52 @@
-import 'dart:html';
-import 'dart:ui' as ui;
-import 'dart:js' as js;
+// google_map.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-class PlatformMap extends StatelessWidget {
-  const PlatformMap({super.key});
+/// Nur für Web:
+/// `dart:html` ist nur auf Flutter Web erlaubt
+/// `dart:ui` Zugriff nur über `dart:ui_web`-Schnittstelle
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+
+import 'dart:ui' as ui;
+
+import 'package:js/js.dart';
+
+@JS('initMap')
+external void initMap();
+
+class GoogleMapWidget extends StatelessWidget {
+  const GoogleMapWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const viewType = 'google-maps-html';
-
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
-      final containerId = 'map-container-$viewId';
-
-      final container =
-          DivElement()
-            ..id = containerId
+    if (kIsWeb) {
+      // 🔧 Nur auf Web registrieren
+      // ignore: undefined_prefixed_name
+      ui.platformViewRegistry.registerViewFactory(
+        'google-maps-html',
+        (int viewId) {
+          final div = html.DivElement()
+            ..id = 'map'
             ..style.width = '100%'
             ..style.height = '100%'
-            ..style.border = 'none'
-            ..text = 'Loading map...';
+            ..style.border = 'none';
 
-      final token = window.localStorage['MAP_CREDENTIAL'];
-      final callbackName = 'initMapCallback$viewId';
-
-      if (token != null && token.trim().isNotEmpty) {
-        // Only inject if not already injected
-        final existing = document.querySelectorAll(
-          'script[src*="maps.googleapis.com/maps/api/js"]',
-        );
-        if (existing.isEmpty) {
-          // Define callback to init map once script loads
-          js.context[callbackName] = js.allowInterop(() {
-            final mapOptions = js.JsObject.jsify({
-              'center': js.JsObject.jsify({'lat': 48.137154, 'lng': 11.576124}),
-              'zoom': 14,
-            });
-
-            final mapConstructor = js.context['google']['maps']['Map'];
-            mapConstructor.callMethod('call', [
-              null,
-              document.getElementById(containerId),
-              mapOptions,
-            ]);
-
-            container.text = ''; // Clear loading text
+          Future.delayed(const Duration(milliseconds: 10), () {
+            initMap();
           });
 
-          // Inject script
-          final script =
-              ScriptElement()
-                ..type = 'text/javascript'
-                ..async = true
-                ..defer = true
-                ..src =
-                    'https://maps.googleapis.com/maps/api/js?key=$token&callback=$callbackName';
+          return div;
+        },
+      );
 
-          document.head!.append(script);
-        } else {
-          container.text = '🟡 Google Maps script already injected.';
-        }
-      } else {
-        container.text = '❌ Missing MAP_CREDENTIAL in localStorage.';
-        container.style.color = 'red';
-      }
-
-      return container;
-    });
-
-    return const HtmlElementView(viewType: viewType);
+      return const SizedBox(
+        width: double.infinity,
+        height: 500,
+        child: HtmlElementView(viewType: 'google-maps-html'),
+      );
+    } else {
+      return const Center(child: Text("Google Maps nur im Web verfügbar."));
+    }
   }
 }
