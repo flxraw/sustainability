@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../models/dropped_item.dart';
 import '../services/score_calculator.dart';
 import '../widgets/score_display.dart';
+import '../services/google_streetview_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -26,10 +28,13 @@ class _MainScreenState extends State<MainScreen> {
   bool _mapLocked = false;
   double? _pollutionScore;
   double? _happinessScore;
+  String? _searchedAddress;
 
   Future<void> _searchLocation() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
+
+    _searchedAddress = query;
 
     final apiKey = dotenv.env['google_nerv']!;
     final url = Uri.parse(
@@ -72,6 +77,7 @@ class _MainScreenState extends State<MainScreen> {
     if (confirmed == true) {
       final controller = await _mapController.future;
       await controller.animateCamera(CameraUpdate.newLatLngZoom(position, 18));
+
       setState(() {
         _mapCenter = position;
         _selectedMarker = Marker(
@@ -82,6 +88,18 @@ class _MainScreenState extends State<MainScreen> {
       });
 
       _updateScores();
+
+      try {
+        if (_searchedAddress != null) {
+          final imageFile = await GoogleStreetViewService.fetchStreetViewImage(
+            _searchedAddress!,
+            dotenv.env['google_nerv']!,
+          );
+          _showMessage('Street View image fetched: ${imageFile.path}');
+        }
+      } catch (e) {
+        _showMessage('Error fetching Street View image.');
+      }
     }
   }
 
@@ -168,7 +186,6 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Header
           Container(
             color: const Color(0xFFCEFF00),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -219,12 +236,9 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
-
-          // Main body
           Expanded(
             child: Row(
               children: [
-                // Sidebar
                 Container(
                   width: 260,
                   color: Colors.black,
@@ -249,7 +263,6 @@ class _MainScreenState extends State<MainScreen> {
                         _buildTool('tree', 'Tree', 'Tree', 'green'),
                         _buildTool('fountain', 'Fountain', 'Fountain', 'green'),
                         _buildTool('charger', 'Charger', 'Charger', 'green'),
-
                         const SizedBox(height: 12),
                         const Text(
                           '🚲 Mobility',
@@ -267,7 +280,6 @@ class _MainScreenState extends State<MainScreen> {
                           'Bike Lane',
                           'mobility',
                         ),
-
                         const SizedBox(height: 12),
                         const Text(
                           '👥 Social',
@@ -283,8 +295,6 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                 ),
-
-                // Map Canvas
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -357,16 +367,19 @@ class _MainScreenState extends State<MainScreen> {
                             child: TextField(
                               controller: _searchController,
                               onSubmitted: (_) => _searchLocation(),
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(color: Colors.black),
                               decoration: InputDecoration(
                                 hintText: 'Straßenname eingeben...',
                                 hintStyle: const TextStyle(
-                                  color: Colors.white54,
+                                  color: Colors.black54,
                                 ),
                                 filled: true,
                                 fillColor: Colors.white,
                                 suffixIcon: IconButton(
-                                  icon: const Icon(Icons.search),
+                                  icon: const Icon(
+                                    Icons.search,
+                                    color: Colors.black,
+                                  ),
                                   onPressed: _searchLocation,
                                 ),
                                 border: OutlineInputBorder(
@@ -416,8 +429,6 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
-
-          // Footer
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             child: Row(
