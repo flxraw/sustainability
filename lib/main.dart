@@ -1,25 +1,40 @@
 import 'package:flutter/material.dart';
-import 'screens/main_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
-  runApp(const StreetAIbilityApp());
+import 'screens/home_screen.dart';
+import 'screens/main_screen.dart';
+import 'screens/about_screen.dart';
+
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
+  runApp(const StreetAIApp());
 }
 
-class StreetAIbilityApp extends StatelessWidget {
-  const StreetAIbilityApp({super.key});
+class StreetAIApp extends StatelessWidget {
+  const StreetAIApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'StreetAIbility',
+      title: 'StreeAIability',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        fontFamily: 'Helvetica',
+        scaffoldBackgroundColor: Colors.grey[100],
+        fontFamily: 'Roboto',
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFCEFF00)),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const HomeScreen(),
+        '/main': (context) => const MainScreen(),
+        '/about': (context) => const AboutScreen(),
+      },
     );
   }
 }

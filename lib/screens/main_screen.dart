@@ -1,17 +1,13 @@
 import 'dart:async';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+
 import '../models/dropped_item.dart';
 import '../services/score_calculator.dart';
-import '../services/dalle.dart';
-import '../widgets/draggable_icon.dart';
-import '../widgets/header_button.dart';
 import '../widgets/score_display.dart';
-import 'dart:convert';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -74,7 +70,6 @@ class _MainScreenState extends State<MainScreen> {
     if (confirmed == true) {
       final controller = await _mapController.future;
       await controller.animateCamera(CameraUpdate.newLatLngZoom(position, 18));
-
       setState(() {
         _mapCenter = position;
         _selectedMarker = Marker(
@@ -88,7 +83,7 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _handleDrop(Offset offset, Icon icon, String type) {
+  void _handleDrop(Offset offset, String imagePath, String type) {
     final box = context.findRenderObject() as RenderBox;
     final localPos = box.globalToLocal(offset);
     final width = box.size.width;
@@ -101,7 +96,7 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() {
       _droppedItems.add(
-        DroppedItem(position: localPos, icon: icon, type: type),
+        DroppedItem(position: localPos, imagePath: imagePath, type: type),
       );
     });
 
@@ -111,14 +106,12 @@ class _MainScreenState extends State<MainScreen> {
   void _updateScores() {
     final score = ScoreCalculator(
       treeCount: _droppedItems.where((i) => i.type == 'tree').length,
-      greenModuleCount:
-          _droppedItems.where((i) => i.type == 'ev_station').length,
+      greenModuleCount: _droppedItems.where((i) => i.type == 'charger').length,
       pollutingModuleCount: 1,
-      amenityCount:
-          _droppedItems.where((i) => i.type == 'pedestrian_zone').length,
+      amenityCount: _droppedItems.where((i) => i.type == 'pedestrians').length,
       greenTransportCount:
           _droppedItems
-              .where((i) => i.type == 'bike_lane' || i.type == 'bus')
+              .where((i) => i.type == 'bike_lane' || i.type == 'bus_stop')
               .length,
     );
 
@@ -132,12 +125,48 @@ class _MainScreenState extends State<MainScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Widget _buildTool(
+    String type,
+    String imageName,
+    String label,
+    String classType,
+  ) {
+    final imagePath = 'assets/icons/$imageName.png';
+    final widget = Column(
+      children: [
+        Image.asset(imagePath, width: 40, height: 40),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      ],
+    );
+
+    final bgColor =
+        classType == 'green'
+            ? Colors.green[800]
+            : classType == 'mobility'
+            ? Colors.blue[700]
+            : Colors.purple[700];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Draggable<_DragPayload>(
+        data: _DragPayload(imagePath, type),
+        feedback: Material(color: Colors.transparent, child: widget),
+        childWhenDragging: Opacity(opacity: 0.4, child: widget),
+        child: Padding(padding: const EdgeInsets.all(8), child: widget),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
-          // HEADER
+          // Header
           Container(
             color: const Color(0xFFCEFF00),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -170,62 +199,90 @@ class _MainScreenState extends State<MainScreen> {
                 ),
                 Row(
                   children: [
-                    HeaderButton(text: 'Design Your Street'),
-                    HeaderButton(text: 'Community Designs'),
-                    HeaderButton(text: 'Sign in'),
-                    HeaderButton(text: 'About'),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/'),
+                      child: const Text('Home'),
+                    ),
+                    TextButton(
+                      onPressed: () {},
+                      child: const Text('Community Designs'),
+                    ),
+                    TextButton(onPressed: () {}, child: const Text('Sign in')),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(context, '/about'),
+                      child: const Text('About'),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
 
-          // BODY
+          // Main body
           Expanded(
             child: Row(
               children: [
-                // SIDEBAR
+                // Sidebar
                 Container(
                   width: 260,
                   color: Colors.black,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Transformation Element',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                  padding: const EdgeInsets.all(12),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Transformation Elements',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTool(
-                        'bus',
-                        Icons.directions_bus,
-                        'MCube\nAutonomous Bus',
-                      ),
-                      _buildTool(
-                        'bike_lane',
-                        Icons.directions_bike,
-                        'Bike Lane',
-                      ),
-                      _buildTool(
-                        'ev_station',
-                        Icons.ev_station,
-                        'EV Charging Station',
-                      ),
-                      _buildTool(
-                        'pedestrian_zone',
-                        Icons.directions_walk,
-                        'Pedestrian Zone',
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        const Text(
+                          '🌿 Green',
+                          style: TextStyle(color: Colors.greenAccent),
+                        ),
+                        _buildTool('tree', 'Tree', 'Tree', 'green'),
+                        _buildTool('fountain', 'Fountain', 'Fountain', 'green'),
+                        _buildTool('charger', 'Charger', 'Charger', 'green'),
+
+                        const SizedBox(height: 12),
+                        const Text(
+                          '🚲 Mobility',
+                          style: TextStyle(color: Colors.lightBlueAccent),
+                        ),
+                        _buildTool(
+                          'bus_stop',
+                          'Bus stop',
+                          'Bus Stop',
+                          'mobility',
+                        ),
+                        _buildTool(
+                          'bike_lane',
+                          'Bike lane',
+                          'Bike Lane',
+                          'mobility',
+                        ),
+
+                        const SizedBox(height: 12),
+                        const Text(
+                          '👥 Social',
+                          style: TextStyle(color: Colors.purpleAccent),
+                        ),
+                        _buildTool(
+                          'pedestrians',
+                          'Pedestrians',
+                          'Pedestrian Zone',
+                          'social',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
-                // MAP + CANVAS
+                // Map Canvas
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -271,11 +328,11 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                           Positioned.fill(
                             child: DragTarget<_DragPayload>(
-                              builder: (_, __, ___) => Container(),
+                              builder: (_, __, ___) => const SizedBox.expand(),
                               onAcceptWithDetails:
                                   (details) => _handleDrop(
                                     details.offset,
-                                    details.data.icon,
+                                    details.data.imagePath,
                                     details.data.type,
                                   ),
                             ),
@@ -284,7 +341,11 @@ class _MainScreenState extends State<MainScreen> {
                             (item) => Positioned(
                               left: item.position.dx - 24,
                               top: item.position.dy - 24,
-                              child: item.icon,
+                              child: Image.asset(
+                                item.imagePath,
+                                width: 48,
+                                height: 48,
+                              ),
                             ),
                           ),
                           Positioned(
@@ -297,7 +358,7 @@ class _MainScreenState extends State<MainScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Enter street address',
                                 filled: true,
-                                fillColor: Colors.black,
+                                fillColor: Colors.white,
                                 suffixIcon: IconButton(
                                   icon: const Icon(Icons.search),
                                   onPressed: _searchLocation,
@@ -311,9 +372,35 @@ class _MainScreenState extends State<MainScreen> {
                           Positioned(
                             top: 16,
                             right: 16,
-                            child: ImpactScoreDisplay(
-                              pollution: _pollutionScore ?? 80,
-                              happiness: _happinessScore ?? 20,
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Impact Scores',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ImpactScoreDisplay(
+                                    pollution: _pollutionScore ?? 80,
+                                    happiness: _happinessScore ?? 20,
+                                    costScore: _droppedItems.length.toDouble(),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -325,19 +412,18 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
 
-          // BOTTOM BAR
+          // Bottom Actions
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => setState(() => _droppedItems.clear()),
-                      child: const Text('Reset Elements'),
-                    ),
-                  ],
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() => _droppedItems.clear());
+                    _updateScores();
+                  },
+                  child: const Text('Reset Elements'),
                 ),
                 ElevatedButton(
                   onPressed: () {},
@@ -354,32 +440,11 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
-  Widget _buildTool(String type, IconData icon, String label) {
-    return Draggable<_DragPayload>(
-      data: _DragPayload(Icon(icon, size: 40, color: Colors.limeAccent), type),
-      feedback: Material(
-        color: Colors.transparent,
-        child: Icon(icon, size: 40, color: Colors.limeAccent),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.5,
-        child: ListTile(
-          leading: Icon(icon, color: Colors.limeAccent),
-          title: Text(label),
-        ),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.limeAccent),
-        title: Text(label),
-      ),
-    );
-  }
 }
 
 class _DragPayload {
-  final Icon icon;
+  final String imagePath;
   final String type;
 
-  _DragPayload(this.icon, this.type);
+  _DragPayload(this.imagePath, this.type);
 }
