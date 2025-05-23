@@ -7,7 +7,8 @@ import 'package:image/image.dart' as img;
 class DalleService {
   final String authToken;
 
-  DalleService({required this.authToken});
+  DalleService({String? authToken})
+    : authToken = authToken ?? const String.fromEnvironment('OPENAI_API_KEY');
 
   /// Generates an image using DALL·E and returns a base64-encoded image string
   Future<String?> generateImage(String promptText) async {
@@ -23,13 +24,13 @@ class DalleService {
         'prompt': promptText,
         'n': 1,
         'size': '1024x1024',
-        'response_format': 'b64_json', // ✅ Return base64 instead of URL
+        'response_format': 'b64_json',
       }),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data['data'][0]['b64_json']; // ✅ Base64 image
+      return data['data'][0]['b64_json'];
     } else {
       print('⚠️ Image generation failed: ${response.body}');
       return null;
@@ -50,8 +51,7 @@ class DalleService {
           ..fields['prompt'] = promptText
           ..fields['n'] = '1'
           ..fields['size'] = '1024x1024'
-          ..fields['response_format'] =
-              'b64_json' // ✅ Important for editing too
+          ..fields['response_format'] = 'b64_json'
           ..files.add(
             await http.MultipartFile.fromPath('image', imageFile.path),
           )

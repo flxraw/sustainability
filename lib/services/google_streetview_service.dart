@@ -3,9 +3,12 @@ import 'package:http/http.dart' as http;
 
 class GoogleStreetViewService {
   static Future<File> fetchStreetViewImage(
-    String address,
-    String apiKey,
-  ) async {
+    String address, [
+    String? apiKeyOverride,
+  ]) async {
+    final apiKey =
+        apiKeyOverride ?? const String.fromEnvironment('google_nerv');
+
     final url = Uri.parse(
       'https://maps.googleapis.com/maps/api/streetview?size=1024x1024&location=${Uri.encodeComponent(address)}&key=$apiKey',
     );

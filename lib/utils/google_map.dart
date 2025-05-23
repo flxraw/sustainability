@@ -2,7 +2,6 @@ import 'dart:html';
 import 'dart:js' as js;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class PlatformMap extends StatelessWidget {
   const PlatformMap({super.key});
@@ -23,7 +22,7 @@ class PlatformMap extends StatelessWidget {
             ..style.border = 'none'
             ..text = 'Loading map...';
 
-      final apiKey = dotenv.env['google_nerv'];
+      final apiKey = const String.fromEnvironment('google_nerv');
       final callbackName = 'initMapCallback$viewId';
 
       js.context[callbackName] = js.allowInterop(() {
@@ -41,7 +40,6 @@ class PlatformMap extends StatelessWidget {
         }
       });
 
-      // Prevent double script injection
       if (document
           .querySelectorAll('script[src*="maps.googleapis.com"]')
           .isEmpty) {

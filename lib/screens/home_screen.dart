@@ -5,36 +5,33 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header with Logo
+            // Header
             Container(
               color: Colors.black,
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'StreetAI-ability',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFCEFF00),
-                          ),
-                        ),
-                        TextSpan(
-                          text: '\nRethink your street',
-                          style: TextStyle(fontSize: 14, color: Colors.white70),
-                        ),
-                      ],
+                children: const [
+                  Text(
+                    'StreetAI-ability',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFCEFF00),
                     ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Rethink your street',
+                    style: TextStyle(fontSize: 14, color: Colors.white70),
                   ),
                 ],
               ),
@@ -43,7 +40,7 @@ class HomeScreen extends StatelessWidget {
             // Hero Section
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 32),
+              padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF0D0D0D), Color(0xFF1C1C1C)],
@@ -54,41 +51,26 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(fontSize: 32, color: Colors.white),
-                      children: [
-                        TextSpan(text: 'Redesign '),
-                        TextSpan(
-                          text: 'Your Street',
-                          style: TextStyle(
-                            color: Color(0xFFCEFF00),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextSpan(text: ' For a\n'),
-                        TextSpan(
-                          text: 'Sustainable Future',
-                          style: TextStyle(
-                            color: Color(0xFFCEFF00),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                  const Text(
+                    'Redesign Your Street For a\nSustainable Future',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFCEFF00),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Transform your neighborhood with our interactive design tool. Add greenery, sustainable transportation, and urban elements to create a cleaner, happier urban environment.',
+                    'Transform your neighbourhood with our interactive design tool. Add greenery, sustainable transportation, and urban elements.',
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                   const SizedBox(height: 24),
-                  Row(
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/main');
-                        },
+                        onPressed: () => Navigator.pushNamed(context, '/main'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFCEFF00),
                           foregroundColor: Colors.black,
@@ -99,11 +81,9 @@ class HomeScreen extends StatelessWidget {
                         ),
                         child: const Text('Design Your Street'),
                       ),
-                      const SizedBox(width: 12),
                       OutlinedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/community');
-                        },
+                        onPressed:
+                            () => Navigator.pushNamed(context, '/community'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Color(0xFFCEFF00)),
@@ -118,43 +98,50 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // How It Works
-            const Text(
-              'How It Works',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'How It Works',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                _StepBox(
-                  step: '1',
-                  title: 'Upload Your Street',
-                  description:
-                      'Upload an image of your street or select from our gallery of Munich locations.',
-                ),
-                SizedBox(width: 16),
-                _StepBox(
-                  step: '2',
-                  title: 'Design & Transform',
-                  description:
-                      'Drag and drop sustainable elements to redesign your street according to your vision.',
-                ),
-                SizedBox(width: 16),
-                _StepBox(
-                  step: '3',
-                  title: 'Share & Inspire',
-                  description:
-                      'Publish your design, view impact metrics, and inspire others with your vision.',
-                ),
-              ],
+
+            // Steps
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                alignment: WrapAlignment.center,
+                children: const [
+                  _StepBox(
+                    step: '1',
+                    title: 'Upload Your Street',
+                    description:
+                        'Upload an image of your street or choose from our gallery.',
+                  ),
+                  _StepBox(
+                    step: '2',
+                    title: 'Design & Transform',
+                    description:
+                        'Drag and drop sustainable elements onto your street.',
+                  ),
+                  _StepBox(
+                    step: '3',
+                    title: 'Share & Inspire',
+                    description:
+                        'Publish and inspire others with your design vision.',
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 48),
 
             // Impact Section
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
               color: Colors.grey[50],
               child: Column(
                 children: [
@@ -164,29 +151,30 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'StreeAIability isn\'t just a design tool – it\'s a platform for real change. The most popular designs could be considered for implementation in Munich.',
+                    'StreetAIability isn\'t just a tool – it\'s a platform for change. Your designs could inspire real-world improvements in Munich.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    alignment: WrapAlignment.center,
                     children: const [
                       _ImpactCard(
                         title: '🌿 Environmental Benefits',
                         items: [
-                          'Reduced carbon emissions from sustainable transportation',
-                          'Improved air quality from increased urban greenery',
-                          'Less noise pollution and more comfortable living spaces',
+                          'Reduced carbon emissions',
+                          'Improved air quality',
+                          'Less noise pollution',
                         ],
                       ),
-                      SizedBox(width: 16),
                       _ImpactCard(
                         title: '💬 Social Benefits',
                         items: [
-                          'More community gathering spaces and social interaction',
-                          'Safer streets for children, elderly, and all residents',
-                          'Increased accessibility and mobility options for everyone',
+                          'More community spaces',
+                          'Safer streets for all',
+                          'Better accessibility and mobility',
                         ],
                       ),
                     ],

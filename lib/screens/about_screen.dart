@@ -17,38 +17,46 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const creators = [
-      ContributorCard(
+    final screenWidth = MediaQuery.of(context).size.width;
+    final gridCount =
+        screenWidth < 500
+            ? 1
+            : screenWidth < 900
+            ? 2
+            : 3;
+
+    final creators = [
+      const ContributorCard(
         name: 'Felix Hauger',
         role: 'Masters student at TUM',
         imagePath: 'assets/profiles/felix.jpg',
         isAsset: true,
         linkedInUrl: 'https://www.linkedin.com/in/felix-hauger/',
       ),
-      ContributorCard(
-        name: 'Bela Bokdorner',
+      const ContributorCard(
+        name: 'Bela Goldbrunner',
         role: 'Masters student at TUM',
         imagePath: 'assets/profiles/bela.jpg',
         isAsset: true,
         linkedInUrl: 'https://www.linkedin.com/in/belagoldbrunner',
       ),
-      ContributorCard(
+      const ContributorCard(
         name: 'Josefine Jacobs',
         role: 'Masters student at TUM',
         imagePath: 'assets/profiles/josefine.jpg',
         isAsset: true,
         linkedInUrl: 'https://www.linkedin.com/in/josefine-jacobs-85a270246/',
       ),
-      ContributorCard(
-        name: 'Jacqueline Haik',
-        role: 'Student at Hochschule München',
+      const ContributorCard(
+        name: 'Jacqueline Walk',
+        role: 'Masters student at Hochschule München',
         imagePath: 'assets/profiles/jacqueline.jpg',
         isAsset: true,
         linkedInUrl: 'https://www.linkedin.com/in/jacqueline-walk/',
       ),
-      ContributorCard(
+      const ContributorCard(
         name: 'Laila Yassin',
-        role: 'Student at Hochschule München',
+        role: 'Masters student at Hochschule München',
         imagePath: 'assets/profiles/laila.jpg',
         isAsset: true,
         linkedInUrl: 'https://www.linkedin.com/in/lailayassin/',
@@ -79,7 +87,7 @@ class AboutScreen extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               color: Colors.black,
               child: const Text(
-                'About StreeAIability',
+                'About StreetAIability',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,
@@ -89,7 +97,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'An interactive platform that empowers citizens to reimagine and reshape the future of Munich\'s streets through sustainable urban design.',
+              'An interactive platform that empowers citizens to reimagine and reshape the future of Munich streets through sustainable urban design.',
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 32),
@@ -99,7 +107,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'StreeAIability is a collaborative initiative developed in partnership with MCube to create a sustainable, citizen-centered approach to urban planning in Munich. '
+              'StreetAIability is a collaborative initiative developed in partnership with MCube to create a sustainable, citizen-centered approach to urban planning in Munich. '
               'We believe that the people who live in and move through our streets daily should have a voice in how those spaces evolve.\n\n'
               'Our platform bridges the gap between urban planning expertise and community knowledge, allowing citizens to visualize potential changes to their streets and understand their environmental and social impacts.',
               style: TextStyle(fontSize: 16),
@@ -144,23 +152,25 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'StreeAIability is more than just a design tool - it\'s a community platform that connects citizens\' ideas with urban planning expertise and policy implementation. '
+              'StreetAIability is more than just a design tool - it\'s a community platform that connects citizens\' ideas with urban planning expertise and policy implementation. '
               'By using our interactive design interface, you\'re contributing to a collective vision for Munich\'s future.',
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 24),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
               children: const [
-                Expanded(
+                SizedBox(
+                  width: 400,
                   child: _InfoCard(
                     title: 'How It Works',
                     content:
                         'Upload street images and add sustainable elements using drag-and-drop. Real-time scores show the effect on happiness and pollution.\n\nTop designs are reviewed and presented to local decision-makers.',
                   ),
                 ),
-                SizedBox(width: 16),
-                Expanded(
+                SizedBox(
+                  width: 400,
                   child: _InfoCard(
                     title: 'The Technology',
                     content:
@@ -210,8 +220,8 @@ class AboutScreen extends StatelessWidget {
               itemCount: creators.length,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: gridCount,
                 mainAxisSpacing: 16,
                 crossAxisSpacing: 16,
                 childAspectRatio: 1,

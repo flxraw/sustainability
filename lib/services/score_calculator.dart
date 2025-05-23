@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 class ScoreCalculator {
@@ -19,9 +18,9 @@ class ScoreCalculator {
   });
 
   Future<int> fetchBasePollution(double lat, double lng) async {
-    final apiKey = dotenv.env['GOOGLE_AIR'];
-    if (apiKey == null || apiKey.isEmpty) {
-      throw Exception('GOOGLE_AIR API key is missing in .env');
+    final apiKey = const String.fromEnvironment('google_air');
+    if (apiKey.isEmpty) {
+      throw Exception('google_air API key is missing. Use --dart-define.');
     }
 
     final url = Uri.parse(

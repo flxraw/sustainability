@@ -11,7 +11,15 @@ import 'screens/community_designs_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: 'assets/.env');
+  // Load .env only in dev/local; skip if building with --dart-define
+  try {
+    await dotenv.load(fileName: 'assets/.env');
+  } catch (_) {
+    // ignore: avoid_print
+    print(
+      'No local .env file found – assuming production build with --dart-define',
+    );
+  }
 
   await Hive.initFlutter();
   Hive.registerAdapter(DesignAdapter());

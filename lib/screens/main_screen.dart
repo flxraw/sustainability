@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:screenshot/screenshot.dart';
@@ -13,6 +12,7 @@ import '../services/score_calculator.dart';
 import '../widgets/score_display.dart';
 import '../models/design.dart';
 import 'package:hive/hive.dart';
+import '../screens/design_detail_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -54,12 +54,16 @@ class _MainScreenState extends State<MainScreen> {
       final response = await http.get(url);
       final data = jsonDecode(response.body);
 
-      if (data['status'] == 'OK' && data['results'] != null && data['results'].isNotEmpty) {
+      if (data['status'] == 'OK' &&
+          data['results'] != null &&
+          data['results'].isNotEmpty) {
         final loc = data['results'][0]['geometry']['location'];
         final position = LatLng(loc['lat'], loc['lng']);
         _confirmStreetSelection(position);
       } else {
-        _showMessage("Adresse nicht gefunden. Versuche es erneut mit einer genaueren Eingabe.");
+        _showMessage(
+          "Adresse nicht gefunden. Versuche es erneut mit einer genaueren Eingabe.",
+        );
       }
     } catch (e) {
       _showMessage("Fehler bei der Adresssuche: ${e.toString()}");
@@ -103,6 +107,56 @@ class _MainScreenState extends State<MainScreen> {
 
       _updateScores();
     }
+  }
+
+  void _handleDrop(Offset globalOffset, String imagePath, String type) {
+    final box = _canvasKey.currentContext!.findRenderObject() as RenderBox;
+    final localPos = box.globalToLocal(globalOffset);
+    final width = box.size.width;
+    final inStreet = localPos.dx >= width * 0.25 && localPos.dx <= width * 0.75;
+
+    if (!inStreet) {
+      _showMessage("Bitte nur innerhalb der Straße ablegen.");
+      return;
+    }
+
+    setState(() {
+      _droppedItems.add(
+        DroppedItem(position: localPos, imagePath: imagePath, type: type),
+      );
+    });
+
+    _updateScores();
+  }
+
+  void _updateScores() {
+    final score = ScoreCalculator(
+      treeCount:
+          _droppedItems
+              .where((i) => ['tree', 'flower', 'plant'].contains(i.type))
+              .length,
+      greenModuleCount: _droppedItems.where((i) => i.type == 'charger').length,
+      pollutingModuleCount: 1,
+      amenityCount:
+          _droppedItems
+              .where(
+                (i) => ['pedestrians', 'bench', 'barbecue'].contains(i.type),
+              )
+              .length,
+      greenTransportCount:
+          _droppedItems
+              .where((i) => ['bike_lane', 'bus_stop'].contains(i.type))
+              .length,
+    );
+
+    setState(() {
+      _happinessScore = score.calculateHappinessScore().toDouble();
+      _pollutionScore = 100 - _happinessScore!;
+    });
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _publishDesign() async {
@@ -156,51 +210,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _handleDrop(Offset globalOffset, String imagePath, String type) {
-    final box = _canvasKey.currentContext!.findRenderObject() as RenderBox;
-    final localPos = box.globalToLocal(globalOffset);
-
-    final width = box.size.width;
-    final inStreet = localPos.dx >= width * 0.25 && localPos.dx <= width * 0.75;
-
-    if (!inStreet) {
-      _showMessage("Bitte nur innerhalb der Straße ablegen.");
-      return;
-    }
-
-    setState(() {
-      _droppedItems.add(
-        DroppedItem(position: localPos, imagePath: imagePath, type: type),
-      );
-    });
-
-    _updateScores();
-  }
-
-  void _updateScores() {
-    final score = ScoreCalculator(
-      treeCount: _droppedItems.where((i) =>
-        i.type == 'tree' || i.type == 'flower' || i.type == 'plant').length,
-      greenModuleCount: _droppedItems.where((i) => i.type == 'charger').length,
-      pollutingModuleCount: 1,
-      amenityCount: _droppedItems.where((i) =>
-        i.type == 'pedestrians' || i.type == 'bench' || i.type == 'barbecue').length,
-      greenTransportCount:
-          _droppedItems
-              .where((i) => i.type == 'bike_lane' || i.type == 'bus_stop')
-              .length,
-    );
-
-    setState(() {
-      _happinessScore = score.calculateHappinessScore().toDouble();
-      _pollutionScore = 100 - _happinessScore!;
-    });
-  }
-
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   Widget _buildTool(String type, String icon, String label, String classType) {
     final imagePath = 'assets/icons/$icon.png';
     final widget = Column(
@@ -211,17 +220,17 @@ class _MainScreenState extends State<MainScreen> {
     );
 
     final bgColor = () {
-  switch (classType) {
-    case 'green':
-      return Colors.green[800];
-    case 'mobility':
-      return Colors.blue[700];
-    case 'social':
-      return const Color.fromARGB(255, 122, 3, 173);
-    default:
-      return Colors.grey[700];
-  }
-}();             
+      switch (classType) {
+        case 'green':
+          return Colors.green[800];
+        case 'mobility':
+          return Colors.blue[700];
+        case 'social':
+          return const Color.fromARGB(255, 122, 3, 173);
+        default:
+          return Colors.grey[700];
+      }
+    }();
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -238,264 +247,284 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildSidebarTools() {
+    return Container(
+      width: 100,
+      color: Colors.black,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text(
+              '🌿 Green',
+              style: TextStyle(color: Colors.greenAccent, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            _buildTool('tree', 'tree', 'Tree', 'green'),
+            _buildTool('charger', 'charger', 'Charger', 'green'),
+            _buildTool('flower', 'flower', 'Flower', 'green'),
+            _buildTool('plant', 'plant', 'Plant', 'green'),
+            const SizedBox(height: 16),
+            const Text(
+              '👥 Social',
+              style: TextStyle(color: Colors.pinkAccent, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            _buildTool('barbecue', 'barbecue', 'Barbecue', 'social'),
+            _buildTool('bench', 'bench', 'Bench', 'social'),
+            const SizedBox(height: 16),
+            const Text(
+              '🚲 Mobility',
+              style: TextStyle(color: Colors.lightBlueAccent, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            _buildTool('pedestrians', 'pedestrians', 'People', 'mobility'),
+            _buildTool('bike_lane', 'bike_lane', 'Bike', 'mobility'),
+            _buildTool('bus_stop', 'bus_stop', 'Bus', 'mobility'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showToolPalette() {
+    showModalBottomSheet(
+      context: context,
+      builder:
+          (context) => Container(
+            color: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildTool('tree', 'tree', 'Tree', 'green'),
+                  _buildTool('charger', 'charger', 'Charger', 'green'),
+                  _buildTool('flower', 'flower', 'Flower', 'green'),
+                  _buildTool('plant', 'plant', 'Plant', 'green'),
+                  _buildTool('barbecue', 'barbecue', 'Barbecue', 'social'),
+                  _buildTool('bench', 'bench', 'Bench', 'social'),
+                  _buildTool(
+                    'pedestrians',
+                    'pedestrians',
+                    'People',
+                    'mobility',
+                  ),
+                  _buildTool('bike_lane', 'bike_lane', 'Bike', 'mobility'),
+                  _buildTool('bus_stop', 'bus_stop', 'Bus', 'mobility'),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  Widget _buildMapArea() {
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
+    final streetBounds = Rect.fromLTWH(width * 0.25, 0, width * 0.5, height);
+
+    return Screenshot(
+      controller: _screenshotController,
+      child: Stack(
+        key: _canvasKey,
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: _mapCenter, zoom: 14),
+            onMapCreated: (c) => _mapController.complete(c),
+            myLocationEnabled: true,
+            zoomControlsEnabled: !_mapLocked,
+            scrollGesturesEnabled: !_mapLocked,
+            zoomGesturesEnabled: !_mapLocked,
+            rotateGesturesEnabled: false,
+            tiltGesturesEnabled: false,
+            markers: _selectedMarker != null ? {_selectedMarker!} : {},
+          ),
+          Positioned.fromRect(
+            rect: streetBounds,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  border: Border.all(color: Colors.green.shade700, width: 2),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              child: DragTarget<_DragPayload>(
+                builder: (_, __, ___) => const SizedBox.expand(),
+                onAcceptWithDetails:
+                    (details) => _handleDrop(
+                      details.offset,
+                      details.data.imagePath,
+                      details.data.type,
+                    ),
+              ),
+            ),
+          ),
+          ..._droppedItems.map(
+            (item) => Positioned(
+              left: item.position.dx - 24,
+              top: item.position.dy - 24,
+              child: Image.asset(item.imagePath, width: 48, height: 48),
+            ),
+          ),
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  ImpactScoreDisplay(
+                    pollution: _pollutionScore ?? 80,
+                    happiness: _happinessScore ?? 20,
+                    costScore: _droppedItems.length.toDouble(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Scaffold(
-      body: Column(
-        children: [
-          Container(
-            color: const Color(0xFFCEFF00),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                      children: [
-                        TextSpan(text: 'StreetAI-'),
-                        TextSpan(
-                          text: 'ability\n',
-                          style: TextStyle(fontSize: 48),
-                        ),
-                        TextSpan(
-                          text: 'Design your street of tomorrow',
-                          style: TextStyle(
-                            fontWeight: FontWeight.normal,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
+      appBar: AppBar(
+        title: const Text('StreetAI-ability'),
+        backgroundColor: const Color(0xFFCEFF00),
+        actions:
+            isMobile
+                ? null
+                : [
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/'),
+                    child: const Text('Home'),
                   ),
-                ),
-                Row(
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/community'),
+                    child: const Text('Community Designs'),
+                  ),
+                  TextButton(onPressed: () {}, child: const Text('Sign in')),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/about'),
+                    child: const Text('About'),
+                  ),
+                ],
+      ),
+      drawer:
+          isMobile
+              ? Drawer(
+                child: ListView(
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.pushNamed(context, '/'),
-                      child: const Text('Home'),
+                    const DrawerHeader(child: Text("StreetAI-ability")),
+                    ListTile(
+                      title: const Text('Home'),
+                      onTap: () => Navigator.pushNamed(context, '/'),
                     ),
-                    TextButton(
-                      onPressed:
-                          () => Navigator.pushNamed(context, '/community'),
-                      child: const Text('Community Designs'),
+                    ListTile(
+                      title: const Text('Community Designs'),
+                      onTap: () => Navigator.pushNamed(context, '/community'),
                     ),
-                    TextButton(onPressed: () {}, child: const Text('Sign in')),
-                    TextButton(
-                      onPressed: () => Navigator.pushNamed(context, '/about'),
-                      child: const Text('About'),
+                    ListTile(title: const Text('Sign in'), onTap: () {}),
+                    ListTile(
+                      title: const Text('About'),
+                      onTap: () => Navigator.pushNamed(context, '/about'),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              )
+              : null,
+      body: Row(
+        children: [
+          if (!isMobile) _buildSidebarTools(),
           Expanded(
-            child: Row(
+            child: Column(
               children: [
-                Container(
-                  width: 100,
-                  color: Colors.black,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Text('🌿 Green', style: TextStyle(color: Colors.greenAccent, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        _buildTool('tree', 'tree', 'Tree', 'green'),
-                        _buildTool('charger', 'charger', 'Charger', 'green'),
-                        _buildTool('flower', 'flower', 'Flower', 'green'),
-                        _buildTool('plant', 'plant', 'Plant', 'green'),
-
-                        const SizedBox(height: 16),
-                        const Text('👥 Social', style: TextStyle(color: Colors.pinkAccent, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        _buildTool('barbecue', 'barbecue', 'Barbecue', 'social'),
-                        _buildTool('bench', 'bench', 'Bench', 'social'),
-
-                        const SizedBox(height: 16),
-                        const Text('🚲 Mobility', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 14)),
-                        const SizedBox(height: 8),
-                        _buildTool('pedestrians', 'pedestrians', 'People', 'mobility'),
-                        _buildTool('bike_lane', 'bike_lane', 'Bike', 'mobility'),
-                        _buildTool('bus_stop', 'bus_stop', 'Bus', 'mobility'),
-                      ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onSubmitted: (_) => _searchLocation(),
+                    decoration: InputDecoration(
+                      hintText: 'Enter street name...',
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: _searchLocation,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
-
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final height = constraints.maxHeight;
-                      final streetBounds = Rect.fromLTWH(
-                        width * 0.25,
-                        0,
-                        width * 0.5,
-                        height,
-                      );
-
-                      return Stack(
-                        key: _canvasKey,
-                        children: [
-                          Screenshot(
-                            controller: _screenshotController,
-                            child: Stack(
-                              children: [
-                                GoogleMap(
-                                  initialCameraPosition: CameraPosition(
-                                    target: _mapCenter,
-                                    zoom: 14,
-                                  ),
-                                  onMapCreated:
-                                      (c) => _mapController.complete(c),
-                                  myLocationEnabled: true,
-                                  zoomControlsEnabled: !_mapLocked,
-                                  scrollGesturesEnabled: !_mapLocked,
-                                  zoomGesturesEnabled: !_mapLocked,
-                                 // rotateGesturesEnabled: !_mapLocked,
-                                  rotateGesturesEnabled: false,         // Diese zwei deaktivieren Tastatur-/Pfeilbewegung
-                                  tiltGesturesEnabled: false,           // 👈 wichtig für Pfeiltasten-Effekt!
-                                  markers:
-                                      _selectedMarker != null
-                                          ? {_selectedMarker!}
-                                          : {},
-                                ),
-                                Positioned.fromRect(
-                                  rect: streetBounds,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.1),
-                                        border: Border.all(
-                                          color: Colors.green.shade700,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned.fill(
-                                  child: DragTarget<_DragPayload>(
-                                    builder:
-                                        (_, __, ___) => const SizedBox.expand(),
-                                    onAcceptWithDetails:
-                                        (details) => _handleDrop(
-                                          details.offset,
-                                          details.data.imagePath,
-                                          details.data.type,
-                                        ),
-                                  ),
-                                ),
-                                ..._droppedItems.map(
-                                  (item) => Positioned(
-                                    left: item.position.dx - 24,
-                                    top: item.position.dy - 24,
-                                    child: Image.asset(
-                                      item.imagePath,
-                                      width: 48,
-                                      height: 48,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Positioned(
-                            top: 16,
-                            left: 24,
-                            right: 300,
-                            child: TextField(
-                              controller: _searchController,
-                              onSubmitted: (_) => _searchLocation(),
-                              style: const TextStyle(color: Colors.black),
-                              decoration: InputDecoration(
-                                hintText: 'Straßenname eingeben...',
-                                hintStyle: const TextStyle(
-                                  color: Colors.black54,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white,
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.search,
-                                    color: Colors.black,
-                                  ),
-                                  onPressed: _searchLocation,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 16,
-                            right: 16,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.85),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 10,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  ImpactScoreDisplay(
-                                    pollution: _pollutionScore ?? 80,
-                                    happiness: _happinessScore ?? 20,
-                                    costScore: _droppedItems.length.toDouble(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() => _droppedItems.clear());
-                    _updateScores();
-                  },
-                  child: const Text('Reset Elements'),
-                ),
-                ElevatedButton(
-                  onPressed: _publishDesign,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                  ),
-                  child: const Text('Publish Your Design'),
-                ),
+                Expanded(child: _buildMapArea()),
               ],
             ),
           ),
         ],
       ),
+      floatingActionButton:
+          isMobile
+              ? FloatingActionButton(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                onPressed: _showToolPalette,
+                child: const Icon(Icons.build),
+              )
+              : Padding(
+                padding: const EdgeInsets.only(bottom: 24, right: 24),
+                child: ElevatedButton(
+                  onPressed: _publishDesign,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: const Text('Publish Your Design'),
+                ),
+              ),
+      bottomNavigationBar:
+          isMobile
+              ? Padding(
+                padding: const EdgeInsets.all(12),
+                child: ElevatedButton(
+                  onPressed: _publishDesign,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Publish Your Design'),
+                ),
+              )
+              : null,
     );
   }
 }
@@ -505,139 +534,4 @@ class _DragPayload {
   final String type;
 
   _DragPayload(this.imagePath, this.type);
-}
-
-class DesignDetailScreen extends StatefulWidget {
-  final String base64Image;
-  final double happinessScore;
-  final double pollutionScore;
-
-  const DesignDetailScreen({
-    super.key,
-    required this.base64Image,
-    required this.happinessScore,
-    required this.pollutionScore,
-  });
-
-  @override
-  State<DesignDetailScreen> createState() => _DesignDetailScreenState();
-}
-
-class _DesignDetailScreenState extends State<DesignDetailScreen> {
-  final _nameController = TextEditingController();
-  final _creatorController = TextEditingController();
-  bool _isSaved = false;
-
-  void _saveDesign() {
-    final name = _nameController.text.trim();
-    final creator = _creatorController.text.trim();
-
-    if (name.isEmpty || creator.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both name and creator.')),
-      );
-      return;
-    }
-
-    final design = Design(
-      name: name,
-      creator: creator,
-      base64Image: widget.base64Image,
-      happinessScore: widget.happinessScore,
-      pollutionScore: widget.pollutionScore,
-    );
-
-    final box = Hive.box<Design>('designs');
-    box.add(design);
-
-    setState(() => _isSaved = true);
-    Navigator.pushNamedAndRemoveUntil(context, '/community', (route) => false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Uint8List? imageBytes;
-    try {
-      imageBytes = base64Decode(widget.base64Image);
-    } catch (_) {}
-
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Your AI-Generated Street Design'),
-        backgroundColor: Colors.black,
-        leading: BackButton(onPressed: () => Navigator.pop(context)),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          if (imageBytes != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Image.memory(
-                imageBytes,
-                height: screenHeight * 0.4,
-                fit: BoxFit.cover,
-              ),
-            )
-          else
-            const Icon(Icons.broken_image, size: 100),
-
-          const SizedBox(height: 24),
-
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Design Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          TextField(
-            controller: _creatorController,
-            decoration: const InputDecoration(
-              labelText: 'Creator Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                '😊 Happiness Score: ',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text('${widget.happinessScore.toStringAsFixed(1)}'),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                '🏭 Pollution Score: ',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text('${widget.pollutionScore.toStringAsFixed(1)}'),
-            ],
-          ),
-
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _isSaved ? null : _saveDesign,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            ),
-            icon: const Icon(Icons.save),
-            label: const Text('Save Design'),
-          ),
-        ],
-      ),
-    );
-  }
 }
