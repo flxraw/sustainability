@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import 'models/design.dart';
 import 'screens/home_screen.dart';
-import 'screens/main_screen.dart'; // This now contains MainScreen class
+import 'screens/main_screen.dart';
 import 'screens/about_screen.dart';
+import 'screens/community_designs_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await dotenv.load(fileName: 'assets/.env');
+
+  await Hive.initFlutter();
+  Hive.registerAdapter(DesignAdapter());
+  await Hive.openBox<Design>('designs');
+
   runApp(const StreetAIApp());
 }
 
@@ -35,6 +44,7 @@ class StreetAIApp extends StatelessWidget {
         '/': (context) => const HomeScreen(),
         '/main': (context) => const MainScreen(),
         '/about': (context) => const AboutScreen(),
+        '/community': (context) => const CommunityDesignsScreen(),
       },
     );
   }

@@ -11,7 +11,8 @@ import 'package:http/http.dart' as http;
 import '../models/dropped_item.dart';
 import '../services/score_calculator.dart';
 import '../widgets/score_display.dart';
-import 'design_detail_screen.dart';
+import '../models/design.dart';
+import 'package:hive/hive.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -124,7 +125,7 @@ class _MainScreenState extends State<MainScreen> {
         'prompt': prompt,
         'n': 1,
         'size': '1024x1024',
-        'response_format': 'b64_json', // ✅ Return base64
+        'response_format': 'b64_json',
       }),
     );
 
@@ -140,12 +141,13 @@ class _MainScreenState extends State<MainScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => DesignDetailScreen(base64Image: b64Image),
+          builder:
+              (_) => DesignDetailScreen(
+                base64Image: b64Image,
+                happinessScore: _happinessScore ?? 50,
+                pollutionScore: _pollutionScore ?? 50,
+              ),
         ),
-      );
-    } else {
-      _showMessage(
-        '⚠️ Failed to generate image. Status code: ${response.statusCode}',
       );
     }
   }
@@ -480,4 +482,139 @@ class _DragPayload {
   final String type;
 
   _DragPayload(this.imagePath, this.type);
+}
+
+class DesignDetailScreen extends StatefulWidget {
+  final String base64Image;
+  final double happinessScore;
+  final double pollutionScore;
+
+  const DesignDetailScreen({
+    super.key,
+    required this.base64Image,
+    required this.happinessScore,
+    required this.pollutionScore,
+  });
+
+  @override
+  State<DesignDetailScreen> createState() => _DesignDetailScreenState();
+}
+
+class _DesignDetailScreenState extends State<DesignDetailScreen> {
+  final _nameController = TextEditingController();
+  final _creatorController = TextEditingController();
+  bool _isSaved = false;
+
+  void _saveDesign() {
+    final name = _nameController.text.trim();
+    final creator = _creatorController.text.trim();
+
+    if (name.isEmpty || creator.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both name and creator.')),
+      );
+      return;
+    }
+
+    final design = Design(
+      name: name,
+      creator: creator,
+      base64Image: widget.base64Image,
+      happinessScore: widget.happinessScore,
+      pollutionScore: widget.pollutionScore,
+    );
+
+    final box = Hive.box<Design>('designs');
+    box.add(design);
+
+    setState(() => _isSaved = true);
+    Navigator.pushNamedAndRemoveUntil(context, '/community', (route) => false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Uint8List? imageBytes;
+    try {
+      imageBytes = base64Decode(widget.base64Image);
+    } catch (_) {}
+
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Your AI-Generated Street Design'),
+        backgroundColor: Colors.black,
+        leading: BackButton(onPressed: () => Navigator.pop(context)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          if (imageBytes != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Image.memory(
+                imageBytes,
+                height: screenHeight * 0.4,
+                fit: BoxFit.cover,
+              ),
+            )
+          else
+            const Icon(Icons.broken_image, size: 100),
+
+          const SizedBox(height: 24),
+
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Design Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          TextField(
+            controller: _creatorController,
+            decoration: const InputDecoration(
+              labelText: 'Creator Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                '😊 Happiness Score: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text('${widget.happinessScore.toStringAsFixed(1)}'),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                '🏭 Pollution Score: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text('${widget.pollutionScore.toStringAsFixed(1)}'),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _isSaved ? null : _saveDesign,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            ),
+            icon: const Icon(Icons.save),
+            label: const Text('Save Design'),
+          ),
+        ],
+      ),
+    );
+  }
 }

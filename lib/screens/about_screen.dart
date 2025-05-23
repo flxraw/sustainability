@@ -168,48 +168,67 @@ class AboutScreen extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: const [
-                ContributorCard(
-                  name: 'Felix Hauger',
-                  role: 'Masters student at TUM',
-                  imagePath: 'assets/profiles/felix.jpg',
-                  isAsset: true,
-                  linkedInUrl: 'https://www.linkedin.com/in/felix-hauger/',
-                ),
-                ContributorCard(
-                  name: 'Bela Goldbrunner',
-                  role: 'Masters student at TUM',
-                  imagePath: 'assets/profiles/bela.jpg',
-                  isAsset: true,
-                  linkedInUrl: 'https://www.linkedin.com/in/belagoldbrunner',
-                ),
-                ContributorCard(
-                  name: 'Josefine Jacobs',
-                  role: 'Masters student at TUM',
-                  imagePath: 'assets/profiles/josefine.jpg',
-                  isAsset: true,
-                  linkedInUrl:
-                      'https://www.linkedin.com/in/josefine-jacobs-85a270246/',
-                ),
-                ContributorCard(
-                  name: 'Jacqueline Walk',
-                  role: 'Student at Hochschule München',
-                  imagePath: 'assets/profiles/jacqueline.jpg',
-                  isAsset: true,
-                  linkedInUrl: 'https://www.linkedin.com/in/jacqueline-walk/',
-                ),
-                ContributorCard(
-                  name: 'Laila Yassin',
-                  role: 'Student at Hochschule München',
-                  imagePath: 'assets/profiles/laila.jpg',
-                  isAsset: true,
-                  linkedInUrl: 'https://www.linkedin.com/in/lailayassin/',
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 600;
+                final crossAxisCount = isWide ? 3 : 1;
+
+                const creators = [
+                  ContributorCard(
+                    name: 'Felix Hauger',
+                    role: 'Masters student at TUM',
+                    imagePath: 'assets/profiles/felix.jpg',
+                    isAsset: true,
+                    linkedInUrl: 'https://www.linkedin.com/in/felix-hauger/',
+                  ),
+                  ContributorCard(
+                    name: 'Bela Goldbrunner',
+                    role: 'Masters student at TUM',
+                    imagePath: 'assets/profiles/bela.jpg',
+                    isAsset: true,
+                    linkedInUrl: 'https://www.linkedin.com/in/belagoldbrunner',
+                  ),
+                  ContributorCard(
+                    name: 'Josefine Jacobs',
+                    role: 'Masters student at TUM',
+                    imagePath: 'assets/profiles/josefine.jpg',
+                    isAsset: true,
+                    linkedInUrl:
+                        'https://www.linkedin.com/in/josefine-jacobs-85a270246/',
+                  ),
+                  ContributorCard(
+                    name: 'Jacqueline Walk',
+                    role: 'Student at Hochschule München',
+                    imagePath: 'assets/profiles/jacqueline.jpg',
+                    isAsset: true,
+                    linkedInUrl: 'https://www.linkedin.com/in/jacqueline-walk/',
+                  ),
+                  ContributorCard(
+                    name: 'Laila Yassin',
+                    role: 'Student at Hochschule München',
+                    imagePath: 'assets/profiles/laila.jpg',
+                    isAsset: true,
+                    linkedInUrl: 'https://www.linkedin.com/in/lailayassin/',
+                  ),
+                ];
+
+                return GridView.builder(
+                  itemCount: creators.length,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: 1.1,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemBuilder: (context, index) {
+                    return creators[index];
+                  },
+                );
+              },
             ),
+
             const SizedBox(height: 48),
             Container(
               width: double.infinity,
@@ -232,7 +251,18 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final emailUri = Uri(
+                        scheme: 'mailto',
+                        path: 'felix.hauger@tum.de',
+                        query: Uri.encodeFull(
+                          'subject=StreetAIability Inquiry',
+                        ),
+                      );
+                      if (await canLaunchUrl(emailUri)) {
+                        await launchUrl(emailUri);
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
@@ -243,6 +273,7 @@ class AboutScreen extends StatelessWidget {
                     ),
                     child: const Text('Contact Us'),
                   ),
+
                   const SizedBox(height: 12),
                   const Text(
                     'Email: felix.hauger@tum.de',
