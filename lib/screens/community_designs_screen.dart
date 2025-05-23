@@ -10,13 +10,6 @@ import '../models/design.dart';
 class CommunityDesignsScreen extends StatelessWidget {
   const CommunityDesignsScreen({super.key});
 
-  void _launchChangeOrg() async {
-    const url = 'https://www.change.org/';
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    }
-  }
-
   void _goHome(BuildContext context) {
     Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
@@ -95,105 +88,131 @@ class CommunityDesignsScreen extends StatelessWidget {
                               horizontal: 16,
                               vertical: 12,
                             ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 6,
-                                    offset: Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.memory(
-                                        imageBytes,
-                                        height: 200,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      design.name,
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      design.creator,
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          '😊 Happiness Score: ',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          design.happinessScore.toStringAsFixed(
-                                            1,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          '🏭 Pollution Score: ',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          design.pollutionScore.toStringAsFixed(
-                                            1,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ElevatedButton(
-                                      onPressed: _launchChangeOrg,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF60603D,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            30,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Create Petition',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            child: _DesignCard(
+                              design: design,
+                              imageBytes: imageBytes,
                             ),
                           );
                         },
                       ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DesignCard extends StatefulWidget {
+  final Design design;
+  final Uint8List imageBytes;
+
+  const _DesignCard({required this.design, required this.imageBytes});
+
+  @override
+  State<_DesignCard> createState() => _DesignCardState();
+}
+
+class _DesignCardState extends State<_DesignCard> {
+  int likes = 0;
+
+  void _showImageDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(child: Image.memory(widget.imageBytes)),
+    );
+  }
+
+  void _launchChangeOrg() async {
+    const url = 'https://www.change.org/';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                widget.imageBytes,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.design.name,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            Text(widget.design.creator, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text(
+                  '😊 Happiness Score: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(widget.design.happinessScore.toStringAsFixed(1)),
+              ],
+            ),
+            Row(
+              children: [
+                const Text(
+                  '🏭 Pollution Score: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(widget.design.pollutionScore.toStringAsFixed(1)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.thumb_up_alt_outlined),
+                  onPressed: () => setState(() => likes++),
+                ),
+                Text('$likes'),
+                const SizedBox(width: 16),
+                IconButton(
+                  icon: const Icon(Icons.visibility),
+                  onPressed: _showImageDialog,
+                ),
+                const Text("View"),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _launchChangeOrg,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF60603D),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Text(
+                'Create Petition',
+                style: TextStyle(fontSize: 16),
+              ),
             ),
           ],
         ),

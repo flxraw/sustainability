@@ -4,15 +4,57 @@ import 'package:url_launcher/url_launcher.dart';
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _sendEmail() async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'felix.hauger@tum.de',
+      query: Uri.encodeFull('subject=StreetAIability Inquiry'),
+    );
+    if (await canLaunchUrl(emailUri)) {
+      await launchUrl(emailUri);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    const creators = [
+      ContributorCard(
+        name: 'Felix Hauger',
+        role: 'Masters student at TUM',
+        imagePath: 'assets/profiles/felix.jpg',
+        isAsset: true,
+        linkedInUrl: 'https://www.linkedin.com/in/felix-hauger/',
+      ),
+      ContributorCard(
+        name: 'Bela Bokdorner',
+        role: 'Masters student at TUM',
+        imagePath: 'assets/profiles/bela.jpg',
+        isAsset: true,
+        linkedInUrl: 'https://www.linkedin.com/in/belagoldbrunner',
+      ),
+      ContributorCard(
+        name: 'Josefine Jacobs',
+        role: 'Masters student at TUM',
+        imagePath: 'assets/profiles/josefine.jpg',
+        isAsset: true,
+        linkedInUrl: 'https://www.linkedin.com/in/josefine-jacobs-85a270246/',
+      ),
+      ContributorCard(
+        name: 'Jacqueline Haik',
+        role: 'Student at Hochschule München',
+        imagePath: 'assets/profiles/jacqueline.jpg',
+        isAsset: true,
+        linkedInUrl: 'https://www.linkedin.com/in/jacqueline-walk/',
+      ),
+      ContributorCard(
+        name: 'Laila Yassin',
+        role: 'Student at Hochschule München',
+        imagePath: 'assets/profiles/laila.jpg',
+        isAsset: true,
+        linkedInUrl: 'https://www.linkedin.com/in/lailayassin/',
+      ),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('About'),
@@ -114,8 +156,7 @@ class AboutScreen extends StatelessWidget {
                   child: _InfoCard(
                     title: 'How It Works',
                     content:
-                        'Our platform allows you to upload images of your streets and add sustainable urban elements through a simple drag-and-drop interface. As you design, real-time impact scores show how your changes affect pollution levels and resident happiness.\n\n'
-                        'The most popular designs are reviewed by our team of urban planners and shared with local decision-makers as part of our commitment to participatory urban development.',
+                        'Upload street images and add sustainable elements using drag-and-drop. Real-time scores show the effect on happiness and pollution.\n\nTop designs are reviewed and presented to local decision-makers.',
                   ),
                 ),
                 SizedBox(width: 16),
@@ -123,8 +164,7 @@ class AboutScreen extends StatelessWidget {
                   child: _InfoCard(
                     title: 'The Technology',
                     content:
-                        'StreeAIability uses AI technology to transform your street designs into realistic visualizations. Our scoring system is based on environmental impact research and urban livability studies.\n\n'
-                        'All elements in our design palette are based on real-world sustainable urban solutions, many of which are already being tested or implemented in Munich and other forward-thinking cities.',
+                        'Uses AI to create realistic designs and calculate environmental impact. All elements are based on real urban interventions tested in Munich.',
                   ),
                 ),
               ],
@@ -136,9 +176,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'MCube is at the forefront of developing autonomous mobility solutions for urban environments. Their innovative approach to transportation is helping cities like Munich reduce emissions, '
-              'decrease congestion, and create more people-friendly streets.\n\n'
-              'Through our partnership, StreeAIability incorporates MCube\'s autonomous bus technology and mobility expertise into its design palette, allowing users to envision how these cutting-edge solutions could transform their streets.',
+              'MCube is pioneering autonomous mobility in cities. Their tech helps reduce traffic, emissions, and noise while creating people-friendly spaces.',
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 16),
@@ -168,67 +206,18 @@ class AboutScreen extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 600;
-                final crossAxisCount = isWide ? 3 : 1;
-
-                const creators = [
-                  ContributorCard(
-                    name: 'Felix Hauger',
-                    role: 'Masters student at TUM',
-                    imagePath: 'assets/profiles/felix.jpg',
-                    isAsset: true,
-                    linkedInUrl: 'https://www.linkedin.com/in/felix-hauger/',
-                  ),
-                  ContributorCard(
-                    name: 'Bela Goldbrunner',
-                    role: 'Masters student at TUM',
-                    imagePath: 'assets/profiles/bela.jpg',
-                    isAsset: true,
-                    linkedInUrl: 'https://www.linkedin.com/in/belagoldbrunner',
-                  ),
-                  ContributorCard(
-                    name: 'Josefine Jacobs',
-                    role: 'Masters student at TUM',
-                    imagePath: 'assets/profiles/josefine.jpg',
-                    isAsset: true,
-                    linkedInUrl:
-                        'https://www.linkedin.com/in/josefine-jacobs-85a270246/',
-                  ),
-                  ContributorCard(
-                    name: 'Jacqueline Walk',
-                    role: 'Student at Hochschule München',
-                    imagePath: 'assets/profiles/jacqueline.jpg',
-                    isAsset: true,
-                    linkedInUrl: 'https://www.linkedin.com/in/jacqueline-walk/',
-                  ),
-                  ContributorCard(
-                    name: 'Laila Yassin',
-                    role: 'Student at Hochschule München',
-                    imagePath: 'assets/profiles/laila.jpg',
-                    isAsset: true,
-                    linkedInUrl: 'https://www.linkedin.com/in/lailayassin/',
-                  ),
-                ];
-
-                return GridView.builder(
-                  itemCount: creators.length,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    childAspectRatio: 1.1,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemBuilder: (context, index) {
-                    return creators[index];
-                  },
-                );
-              },
+            GridView.builder(
+              itemCount: creators.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1,
+              ),
+              itemBuilder: (context, index) => creators[index],
             ),
-
             const SizedBox(height: 48),
             Container(
               width: double.infinity,
@@ -251,18 +240,7 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () async {
-                      final emailUri = Uri(
-                        scheme: 'mailto',
-                        path: 'felix.hauger@tum.de',
-                        query: Uri.encodeFull(
-                          'subject=StreetAIability Inquiry',
-                        ),
-                      );
-                      if (await canLaunchUrl(emailUri)) {
-                        await launchUrl(emailUri);
-                      }
-                    },
+                    onPressed: _sendEmail,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
@@ -272,12 +250,6 @@ class AboutScreen extends StatelessWidget {
                       ),
                     ),
                     child: const Text('Contact Us'),
-                  ),
-
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Email: felix.hauger@tum.de',
-                    style: TextStyle(fontSize: 16),
                   ),
                 ],
               ),
@@ -297,7 +269,8 @@ class BulletPoint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Text("•  ", style: TextStyle(fontSize: 20)),
+        const Text('•', style: TextStyle(fontSize: 20)),
+        const SizedBox(width: 6),
         Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
       ],
     );
@@ -307,7 +280,6 @@ class BulletPoint extends StatelessWidget {
 class _InfoCard extends StatelessWidget {
   final String title;
   final String content;
-
   const _InfoCard({required this.title, required this.content});
 
   @override
@@ -346,7 +318,7 @@ class ContributorCard extends StatelessWidget {
     required this.name,
     required this.role,
     required this.imagePath,
-    this.isAsset = false,
+    required this.isAsset,
     required this.linkedInUrl,
   });
 
@@ -359,36 +331,38 @@ class ContributorCard extends StatelessWidget {
             mode: LaunchMode.externalApplication,
           ),
       child: Container(
-        width: 160,
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
         ),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              backgroundColor: Colors.grey[200],
+              backgroundColor: Colors.grey[800],
               backgroundImage:
                   isAsset
                       ? AssetImage(imagePath)
                       : NetworkImage(imagePath) as ImageProvider,
               radius: 36,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               name,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.white,
+              ),
             ),
             Text(
               role,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 13, color: Colors.white70),
             ),
-            const SizedBox(height: 4),
-            const Icon(Icons.link, size: 18, color: Colors.blue),
           ],
         ),
       ),
