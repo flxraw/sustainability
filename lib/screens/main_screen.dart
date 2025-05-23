@@ -177,10 +177,12 @@ class _MainScreenState extends State<MainScreen> {
 
   void _updateScores() {
     final score = ScoreCalculator(
-      treeCount: _droppedItems.where((i) => i.type == 'tree').length,
+      treeCount: _droppedItems.where((i) =>
+        i.type == 'tree' || i.type == 'flower' || i.type == 'plant').length,
       greenModuleCount: _droppedItems.where((i) => i.type == 'charger').length,
       pollutingModuleCount: 1,
-      amenityCount: _droppedItems.where((i) => i.type == 'pedestrians').length,
+      amenityCount: _droppedItems.where((i) =>
+        i.type == 'pedestrians' || i.type == 'bench' || i.type == 'barbecue').length,
       greenTransportCount:
           _droppedItems
               .where((i) => i.type == 'bike_lane' || i.type == 'bus_stop')
@@ -206,12 +208,18 @@ class _MainScreenState extends State<MainScreen> {
       ],
     );
 
-    final bgColor =
-        classType == 'green'
-            ? Colors.green[800]
-            : classType == 'mobility'
-            ? Colors.blue[700]
-            : Colors.purple[700];
+    final bgColor = () {
+  switch (classType) {
+    case 'green':
+      return Colors.green[800];
+    case 'mobility':
+      return Colors.blue[700];
+    case 'social':
+      return const Color.fromARGB(255, 122, 3, 173);
+    default:
+      return Colors.grey[700];
+  }
+}();             
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -288,24 +296,37 @@ class _MainScreenState extends State<MainScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 80,
+                  width: 100,
                   color: Colors.black,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildTool('tree', 'tree', 'tree', 'green'),
-                      _buildTool('charger', 'charger', 'charger', 'green'),
-                      _buildTool(
-                        'pedestrians',
-                        'pedestrians',
-                        'People',
-                        'mobility',
-                      ),
-                      _buildTool('bike_lane', 'bike_lane', 'Bike', 'mobility'),
-                      _buildTool('bus_stop', 'bus_stop', 'Bus', 'mobility'),
-                    ],
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text('🌿 Green', style: TextStyle(color: Colors.greenAccent, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        _buildTool('tree', 'tree', 'Tree', 'green'),
+                        _buildTool('charger', 'charger', 'Charger', 'green'),
+                        _buildTool('flower', 'flower', 'Flower', 'green'),
+                        _buildTool('plant', 'plant', 'Plant', 'green'),
+
+                        const SizedBox(height: 16),
+                        const Text('👥 Social', style: TextStyle(color: Colors.pinkAccent, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        _buildTool('barbecue', 'barbecue', 'Barbecue', 'social'),
+                        _buildTool('bench', 'bench', 'Bench', 'social'),
+
+                        const SizedBox(height: 16),
+                        const Text('🚲 Mobility', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        _buildTool('pedestrians', 'pedestrians', 'People', 'mobility'),
+                        _buildTool('bike_lane', 'bike_lane', 'Bike', 'mobility'),
+                        _buildTool('bus_stop', 'bus_stop', 'Bus', 'mobility'),
+                      ],
+                    ),
                   ),
                 ),
+
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -430,10 +451,6 @@ class _MainScreenState extends State<MainScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Impact Scores',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
                                   const SizedBox(height: 12),
                                   ImpactScoreDisplay(
                                     pollution: _pollutionScore ?? 80,
